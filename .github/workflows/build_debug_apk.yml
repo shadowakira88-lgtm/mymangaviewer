@@ -32,10 +32,21 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp app/build/outputs/apk/debug/*.apk ElenaManga.apk
+          ls -la app/build/outputs/apk/debug/
+          DIR=app/build/outputs/apk/debug
+          ARM=$(ls $DIR/*arm64-v8a*.apk 2>/dev/null | head -1)
+          UNI=$(ls $DIR/*universal*.apk 2>/dev/null | head -1)
+          ANY=$(ls $DIR/*.apk | head -1)
+          [ -z "$ARM" ] && ARM="${UNI:-$ANY}"
+          cp "$ARM" ElenaManga.apk
+          ASSETS="ElenaManga.apk"
+          if [ -n "$UNI" ] && [ "$UNI" != "$ARM" ]; then
+            cp "$UNI" ElenaManga-universal.apk
+            ASSETS="$ASSETS ElenaManga-universal.apk"
+          fi
           gh release delete latest --cleanup-tag --yes || true
-          gh release create latest ElenaManga.apk \
+          gh release create latest $ASSETS \
             --prerelease \
             --target "${{ github.sha }}" \
             --title "ElenaManga latest build" \
-            --notes "Built from branch ${{ github.ref_name }} (${{ github.sha }})"
+            --notes "Built from branch ${{ github.ref_name }} (${{ github.sha }}). ElenaManga.apk is for 64-bit ARM phones (most phones); use ElenaManga-universal.apk if it does not install."
