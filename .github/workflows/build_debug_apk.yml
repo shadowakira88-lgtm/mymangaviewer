@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -28,3 +28,14 @@ jobs:
         with:
           name: mymangaviewer-debug-apk
           path: app/build/outputs/apk/debug/*.apk
+      - name: Publish APK as the "latest" release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp app/build/outputs/apk/debug/*.apk ElenaManga.apk
+          gh release delete latest --cleanup-tag --yes || true
+          gh release create latest ElenaManga.apk \
+            --prerelease \
+            --target "${{ github.sha }}" \
+            --title "ElenaManga latest build" \
+            --notes "Built from branch ${{ github.ref_name }} (${{ github.sha }})"
