@@ -65,7 +65,7 @@ class SupabaseSyncService(
             finalData.backup
         } catch (e: Exception) {
             if (e is CancellationException) throw e
-            logcat(LogPriority.ERROR, e) { "Supabase sync failed" }
+            logcat(LogPriority.ERROR) { "Supabase sync failed: ${e.message}" }
             notifier.showSyncError(e.message)
             null
         }

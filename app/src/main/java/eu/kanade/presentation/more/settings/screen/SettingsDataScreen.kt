@@ -564,6 +564,7 @@ object SettingsDataScreen : SearchableSettings {
                             SyncManager.SyncService.GOOGLE_DRIVE.value to stringResource(SYMR.strings.google_drive),
                             // KMK -->
                             SyncManager.SyncService.WEB_DAV.value to stringResource(KMR.strings.web_dav),
+                            SyncManager.SyncService.SUPABASE.value to "Supabase",
                             // KMK <--
                         ),
                         title = stringResource(SYMR.strings.pref_sync_service),
@@ -608,6 +609,7 @@ object SettingsDataScreen : SearchableSettings {
             SyncManager.SyncService.GOOGLE_DRIVE -> getGoogleDrivePreferences()
             // KMK -->
             SyncManager.SyncService.WEB_DAV -> getWebDavPreferences(syncPreferences)
+            SyncManager.SyncService.SUPABASE -> emptyList()
             // KMK <--
         }
 
