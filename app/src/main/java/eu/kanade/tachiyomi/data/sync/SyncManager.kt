@@ -13,6 +13,7 @@ import eu.kanade.tachiyomi.data.backup.restore.RestoreOptions
 import eu.kanade.tachiyomi.data.backup.restore.restorers.MangaRestorer
 import eu.kanade.tachiyomi.data.sync.service.GoogleDriveSyncService
 import eu.kanade.tachiyomi.data.sync.service.SyncData
+import eu.kanade.tachiyomi.data.sync.service.SupabaseSyncService
 import eu.kanade.tachiyomi.data.sync.service.SyncYomiSyncService
 import eu.kanade.tachiyomi.data.sync.service.WebDavSyncService
 import kotlinx.serialization.json.Json
@@ -58,6 +59,7 @@ class SyncManager(
         GOOGLE_DRIVE(2),
         // KMK -->
         WEB_DAV(3),
+        SUPABASE(4),
         // KMK <--
         ;
 
@@ -144,6 +146,10 @@ class SyncManager(
             // KMK -->
             SyncService.WEB_DAV -> {
                 WebDavSyncService(context, json, syncPreferences, notifier)
+            }
+
+            SyncService.SUPABASE -> {
+                SupabaseSyncService(context, json, syncPreferences, notifier)
             }
             // KMK <--
 

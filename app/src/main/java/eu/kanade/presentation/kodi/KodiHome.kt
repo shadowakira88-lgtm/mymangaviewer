@@ -51,7 +51,12 @@ private val QuartzDim = Color(0xFFB8B8B8)
 
 data class KodiMenuAction(val title: String, val onClick: () -> Unit)
 
-data class KodiMenuEntry(val title: String, val actions: List<KodiMenuAction>)
+data class KodiMenuEntry(
+    val title: String,
+    val actions: List<KodiMenuAction>,
+    /** When false, pressing the label only selects it and never runs the first sub-item. */
+    val labelRunsFirstAction: Boolean = true,
+)
 
 data class KodiPoster(val mangaId: Long, val cover: DomainMangaCover)
 
@@ -179,13 +184,15 @@ private fun KodiMenuColumn(
                 }
                 .onKeyEvent { event ->
                     if (event.type == KeyEventType.KeyUp && event.key == Key.ButtonA) {
-                        entry.actions.firstOrNull()?.onClick?.invoke()
+                        if (entry.labelRunsFirstAction) entry.actions.firstOrNull()?.onClick?.invoke()
                         true
                     } else {
                         false
                     }
                 }
-                .combinedClickable(onClick = { entry.actions.firstOrNull()?.onClick?.invoke() })
+                .combinedClickable(
+                    onClick = { if (entry.labelRunsFirstAction) entry.actions.firstOrNull()?.onClick?.invoke() },
+                )
                 .padding(vertical = 8.dp),
         )
 

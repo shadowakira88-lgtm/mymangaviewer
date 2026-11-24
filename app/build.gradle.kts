@@ -42,6 +42,21 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // KMK -->
+    // Persistent signing key (from CI secrets) so that in-app updates install over older builds.
+    signingConfigs {
+        val ksPath = System.getenv("ELENA_KEYSTORE_PATH")
+        if (!ksPath.isNullOrBlank() && file(ksPath).exists()) {
+            getByName("debug") {
+                storeFile = file(ksPath)
+                storePassword = System.getenv("ELENA_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("ELENA_KEY_ALIAS")
+                keyPassword = System.getenv("ELENA_KEYSTORE_PASSWORD")
+            }
+        }
+    }
+    // KMK <--
+
     buildTypes {
         val debug by getting {
             applicationIdSuffix = ".dev"

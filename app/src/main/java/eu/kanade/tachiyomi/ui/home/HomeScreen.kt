@@ -45,11 +45,11 @@ import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.kodi.KodiHome
 import eu.kanade.presentation.kodi.KodiMenuAction
 import eu.kanade.presentation.kodi.KodiMenuEntry
+import eu.kanade.presentation.kodi.KomikSettingsScreen
+import eu.kanade.presentation.kodi.SystemSettingsScreen
 import eu.kanade.presentation.kodi.KodiPoster
-import eu.kanade.presentation.more.settings.screen.SettingsVrScreen
 import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.util.isTabletUi
-import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.ui.browse.BrowseTab
 import eu.kanade.tachiyomi.ui.download.DownloadQueueScreen
 import eu.kanade.tachiyomi.ui.history.HistoryTab
@@ -57,7 +57,6 @@ import eu.kanade.tachiyomi.ui.library.LibraryTab
 import eu.kanade.tachiyomi.ui.libraryUpdateError.LibraryUpdateErrorScreen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.more.MoreTab
-import eu.kanade.tachiyomi.ui.setting.SettingsScreen
 import eu.kanade.tachiyomi.ui.updates.UpdatesTab
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
@@ -303,21 +302,17 @@ object HomeScreen : Screen() {
             ),
             KodiMenuEntry(
                 title = stringResource(KMR.strings.kodi_menu_elenaku),
+                labelRunsFirstAction = false,
                 actions = listOf(
                     KodiMenuAction(
                         stringResource(if (vrEnabled) KMR.strings.vr_mode_on else KMR.strings.vr_mode_off),
                     ) { scope.launch { vrPref.set(!vrEnabled) } },
-                    KodiMenuAction(stringResource(KMR.strings.vr_settings)) {
-                        navigator.push(SettingsVrScreen)
+                    KodiMenuAction(stringResource(KMR.strings.komik_settings)) {
+                        navigator.push(KomikSettingsScreen)
                     },
-                    KodiMenuAction(stringResource(MR.strings.action_update_library)) {
-                        LibraryUpdateJob.startNow(context)
+                    KodiMenuAction(stringResource(KMR.strings.system_settings)) {
+                        navigator.push(SystemSettingsScreen)
                     },
-                    KodiMenuAction(stringResource(MR.strings.label_settings)) { navigator.push(SettingsScreen()) },
-                    KodiMenuAction(stringResource(MR.strings.label_download_queue)) {
-                        navigator.push(DownloadQueueScreen)
-                    },
-                    KodiMenuAction(MoreTab.options.title) { onOpenTab(MoreTab) },
                 ),
             ),
         )

@@ -24,6 +24,13 @@ class SyncPreferences(
     fun webDavUsername() = preferenceStore.getString("connection_webdav_username", "")
     fun webDavPassword() = preferenceStore.getString("connection_webdav_password", "")
     fun webDavFolder() = preferenceStore.getString("connection_webdav_folder", "komikku")
+
+    fun supabaseUrl() = preferenceStore.getString("connection_supabase_url", "")
+    fun supabaseAnonKey() = preferenceStore.getString("connection_supabase_anon_key", "")
+    fun supabaseEmail() = preferenceStore.getString("connection_supabase_email", "")
+    fun supabaseAccessToken() = preferenceStore.getString(Preference.appStateKey("supabase_access_token"), "")
+    fun supabaseRefreshToken() = preferenceStore.getString(Preference.appStateKey("supabase_refresh_token"), "")
+    fun supabaseUserId() = preferenceStore.getString(Preference.appStateKey("supabase_user_id"), "")
     // KMK <--
 
     fun googleDriveAccessToken() = preferenceStore.getString(

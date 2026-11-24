@@ -45,6 +45,9 @@ class UiPreferences(
 
     /** VR: vertical shift in dp, positive moves down. */
     fun vrOffsetY() = preferenceStore.getInt("pref_vr_offset_y", 0)
+
+    /** GitHub repository (owner/name) whose `latest` release is used for in-app updates. */
+    fun updateRepo() = preferenceStore.getString("pref_elena_update_repo", "shadowakira88-lgtm/mymangaviewer")
     // KMK <--
 
     // KMK -->
