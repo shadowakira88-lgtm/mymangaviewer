@@ -22,9 +22,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -38,6 +41,10 @@ import cafe.adriel.voyager.navigator.tab.TabNavigator
 import eu.kanade.core.preference.asState
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.domain.ui.UiPreferences
+import eu.kanade.presentation.kodi.KodiHome
+import eu.kanade.presentation.kodi.KodiMenuAction
+import eu.kanade.presentation.kodi.KodiMenuEntry
+import eu.kanade.presentation.kodi.KodiPoster
 import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.util.isTabletUi
 import eu.kanade.tachiyomi.ui.browse.BrowseTab
@@ -47,6 +54,7 @@ import eu.kanade.tachiyomi.ui.library.LibraryTab
 import eu.kanade.tachiyomi.ui.libraryUpdateError.LibraryUpdateErrorScreen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.more.MoreTab
+import eu.kanade.tachiyomi.ui.setting.SettingsScreen
 import eu.kanade.tachiyomi.ui.updates.UpdatesTab
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
@@ -56,11 +64,16 @@ import kotlinx.coroutines.launch
 import soup.compose.material.motion.animation.materialFadeThroughIn
 import soup.compose.material.motion.animation.materialFadeThroughOut
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.manga.interactor.GetLibraryManga
+import tachiyomi.domain.manga.model.MangaCover
+import tachiyomi.i18n.kmk.KMR
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.NavigationBar
 import tachiyomi.presentation.core.components.material.NavigationRail
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.pluralStringResource
+import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.util.collectAsState
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -101,11 +114,21 @@ object HomeScreen : Screen() {
             tab = LibraryTab,
             key = TabNavigatorKey,
         ) { tabNavigator ->
+            // KMK -->
+            val kodiPref = remember { Injekt.get<UiPreferences>().kodiLayout() }
+            val kodiUi by kodiPref.collectAsState()
+            var kodiHome by rememberSaveable { mutableStateOf(true) }
+
+            // Registered before the content so screens opened below (e.g. a library group) get
+            // priority over this handler.
+            BackHandler(enabled = kodiUi && !kodiHome) { kodiHome = true }
+            // KMK <--
+
             // Provide usable navigator to content screen
             CompositionLocalProvider(LocalNavigator provides navigator) {
                 Scaffold(
                     startBar = {
-                        if (isTabletUi()) {
+                        if (isTabletUi() /* KMK --> */ && !kodiUi /* KMK <-- */) {
                             NavigationRail {
                                 TABS
                                     // SY -->
@@ -118,7 +141,7 @@ object HomeScreen : Screen() {
                         }
                     },
                     bottomBar = {
-                        if (!isTabletUi()) {
+                        if (!isTabletUi() /* KMK --> */ && !kodiUi /* KMK <-- */) {
                             val bottomNavVisible by produceState(initialValue = true) {
                                 showBottomNavEvent.receiveAsFlow().collectLatest { value = it }
                             }
@@ -146,6 +169,16 @@ object HomeScreen : Screen() {
                             .padding(contentPadding)
                             .consumeWindowInsets(contentPadding),
                     ) {
+                        // KMK -->
+                        if (kodiUi && kodiHome) {
+                            KodiHomeContent(
+                                onOpenTab = { tab ->
+                                    tabNavigator.current = tab
+                                    kodiHome = false
+                                },
+                            )
+                        } else
+                        // KMK <--
                         AnimatedContent(
                             targetState = tabNavigator.current,
                             transitionSpec = {
@@ -165,17 +198,23 @@ object HomeScreen : Screen() {
 
             val goToLibraryTab = { tabNavigator.current = LibraryTab }
 
-            BackHandler(enabled = tabNavigator.current != LibraryTab, onBack = goToLibraryTab)
+            BackHandler(enabled = /* KMK --> */ !kodiUi && /* KMK <-- */ tabNavigator.current != LibraryTab, onBack = goToLibraryTab)
 
             LaunchedEffect(Unit) {
                 launch {
                     librarySearchEvent.receiveAsFlow().collectLatest {
+                        // KMK -->
+                        kodiHome = false
+                        // KMK <--
                         goToLibraryTab()
                         LibraryTab.search(it)
                     }
                 }
                 launch {
                     openTabEvent.receiveAsFlow().collectLatest {
+                        // KMK -->
+                        kodiHome = false
+                        // KMK <--
                         tabNavigator.current = when (it) {
                             is Tab.Library -> LibraryTab
                             Tab.Updates -> UpdatesTab
@@ -206,6 +245,80 @@ object HomeScreen : Screen() {
             }
         }
     }
+
+    // KMK -->
+    @Composable
+    private fun KodiHomeContent(onOpenTab: (eu.kanade.presentation.util.Tab) -> Unit) {
+        val navigator = LocalNavigator.currentOrThrow
+        val scope = rememberCoroutineScope()
+        val vrPref = remember { Injekt.get<UiPreferences>().vrMode() }
+        val vrEnabled by vrPref.collectAsState()
+
+        val posters by produceState(initialValue = emptyList<KodiPoster>()) {
+            value = runCatching {
+                Injekt.get<GetLibraryManga>().await()
+                    .sortedByDescending { it.lastRead }
+                    .take(14)
+                    .map {
+                        KodiPoster(
+                            mangaId = it.manga.id,
+                            cover = MangaCover(
+                                mangaId = it.manga.id,
+                                sourceId = it.manga.source,
+                                isMangaFavorite = it.manga.favorite,
+                                ogUrl = it.manga.thumbnailUrl,
+                                lastModified = it.manga.coverLastModified,
+                            ),
+                        )
+                    }
+            }.getOrDefault(emptyList())
+        }
+
+        val menu = listOf(
+            KodiMenuEntry(
+                title = LibraryTab.options.title,
+                actions = listOf(KodiMenuAction(LibraryTab.options.title) { onOpenTab(LibraryTab) }),
+            ),
+            KodiMenuEntry(
+                title = UpdatesTab.options.title,
+                actions = listOf(KodiMenuAction(UpdatesTab.options.title) { onOpenTab(UpdatesTab) }),
+            ),
+            KodiMenuEntry(
+                title = HistoryTab.options.title,
+                actions = listOf(KodiMenuAction(HistoryTab.options.title) { onOpenTab(HistoryTab) }),
+            ),
+            KodiMenuEntry(
+                title = BrowseTab.options.title,
+                actions = listOf(
+                    KodiMenuAction(stringResource(MR.strings.label_sources)) { onOpenTab(BrowseTab) },
+                    KodiMenuAction(stringResource(MR.strings.label_extensions)) {
+                        BrowseTab.showExtension()
+                        onOpenTab(BrowseTab)
+                    },
+                ),
+            ),
+            KodiMenuEntry(
+                title = stringResource(MR.strings.label_settings),
+                actions = listOf(
+                    KodiMenuAction(stringResource(MR.strings.label_settings)) { navigator.push(SettingsScreen()) },
+                    KodiMenuAction(MoreTab.options.title) { onOpenTab(MoreTab) },
+                    KodiMenuAction(stringResource(MR.strings.label_download_queue)) {
+                        navigator.push(DownloadQueueScreen)
+                    },
+                    KodiMenuAction(
+                        stringResource(if (vrEnabled) KMR.strings.vr_mode_on else KMR.strings.vr_mode_off),
+                    ) { scope.launch { vrPref.set(!vrEnabled) } },
+                ),
+            ),
+        )
+
+        KodiHome(
+            menu = menu,
+            posters = posters,
+            onClickPoster = { navigator.push(MangaScreen(it)) },
+        )
+    }
+    // KMK <--
 
     @Composable
     private fun RowScope.NavigationBarItem(

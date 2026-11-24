@@ -61,6 +61,7 @@ open class BaseActivity :
         )
         vrLayout = vr
 
+        val initialOrientation = requestedOrientation
         var wasEnabled = false
         Injekt.get<UiPreferences>().vrMode().changes()
             .onEach { enabled ->
@@ -68,7 +69,7 @@ open class BaseActivity :
                 if (enabled) {
                     requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
                 } else if (wasEnabled) {
-                    requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                    requestedOrientation = initialOrientation
                 }
                 wasEnabled = enabled
             }
@@ -81,6 +82,13 @@ open class BaseActivity :
             if (event.action == KeyEvent.ACTION_UP) {
                 val pref = Injekt.get<UiPreferences>().vrMode()
                 pref.set(!pref.get())
+            }
+            return true
+        }
+        // Controller B button acts as Back.
+        if (event.keyCode == KeyEvent.KEYCODE_BUTTON_B) {
+            if (event.action == KeyEvent.ACTION_UP) {
+                onBackPressedDispatcher.onBackPressed()
             }
             return true
         }

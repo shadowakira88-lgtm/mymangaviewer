@@ -46,8 +46,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import eu.kanade.domain.ui.UiPreferences
+import eu.kanade.presentation.category.visualName
 import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.tachiyomi.ui.library.LibraryItem
+import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.manga.model.MangaCover as DomainMangaCover
 import tachiyomi.i18n.kmk.KMR
@@ -163,7 +165,8 @@ internal fun KodiLibraryList(
                         key = { _, item -> item.id },
                     ) { _, item ->
                         KodiRow(
-                            item = item,
+                            title = item.libraryManga.manga.title,
+                            badge = item.unreadCount.takeIf { it > 0 }?.toString(),
                             isSelected = item.id in selection,
                             modifier = if (item.id == initialId) {
                                 Modifier.focusRequester(initialFocus)
@@ -187,7 +190,8 @@ internal fun KodiLibraryList(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun KodiRow(
-    item: LibraryItem,
+    title: String,
+    badge: String?,
     isSelected: Boolean,
     modifier: Modifier,
     onFocused: () -> Unit,
@@ -242,7 +246,7 @@ private fun KodiRow(
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Text(
-            text = item.libraryManga.manga.title,
+            text = title,
             color = when {
                 isSelected -> Color(0xFFFFC857)
                 hasFocus -> KodiFocusBlue
@@ -254,9 +258,9 @@ private fun KodiRow(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
-        if (item.unreadCount > 0) {
+        if (badge != null) {
             Text(
-                text = item.unreadCount.toString(),
+                text = badge,
                 color = Color(0xFFCCCCCC),
                 fontSize = 10.sp,
                 modifier = Modifier
@@ -264,6 +268,96 @@ private fun KodiRow(
                     .border(1.dp, Color(0xFF888888), RoundedCornerShape(2.dp))
                     .padding(horizontal = 4.dp, vertical = 1.dp),
             )
+        }
+    }
+}
+
+/**
+ * First step of the library: the list of groups (categories). Pressing A on a group opens its
+ * manga list.
+ */
+@Composable
+internal fun KodiGroupList(
+    categories: List<Category>,
+    startIndex: Int,
+    contentPadding: PaddingValues,
+    getItemCount: (Category) -> Int?,
+    getFirstCover: (Category) -> DomainMangaCover?,
+    onClickGroup: (Int) -> Unit,
+) {
+    var focusedIndex by rememberSaveable { mutableStateOf(startIndex.coerceIn(0, categories.lastIndex)) }
+    val initialFocus = remember { FocusRequester() }
+    val initialIndex = remember { focusedIndex }
+    val focusedCover = categories.getOrNull(focusedIndex)?.let(getFirstCover)
+
+    LaunchedEffect(Unit) {
+        runCatching { initialFocus.requestFocus() }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black),
+    ) {
+        if (focusedCover != null) {
+            AsyncImage(
+                model = focusedCover,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .blur(24.dp)
+                    .alpha(0.30f),
+            )
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(contentPadding)
+                .padding(horizontal = 24.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(24.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .weight(0.38f)
+                    .fillMaxHeight(),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (focusedCover != null) {
+                    MangaCover.Book(
+                        data = focusedCover,
+                        modifier = Modifier.fillMaxHeight(0.92f),
+                    )
+                }
+            }
+
+            LazyColumn(
+                modifier = Modifier
+                    .weight(0.62f)
+                    .fillMaxHeight(),
+                contentPadding = PaddingValues(vertical = 6.dp),
+            ) {
+                itemsIndexed(
+                    items = categories,
+                    key = { _, category -> category.id },
+                ) { index, category ->
+                    KodiRow(
+                        title = category.visualName,
+                        badge = getItemCount(category)?.takeIf { it > 0 }?.toString(),
+                        isSelected = false,
+                        modifier = if (index == initialIndex) {
+                            Modifier.focusRequester(initialFocus)
+                        } else {
+                            Modifier
+                        },
+                        onFocused = { focusedIndex = index },
+                        onClick = { onClickGroup(index) },
+                        onLongClick = {},
+                        onContinueReading = null,
+                    )
+                }
+            }
         }
     }
 }
