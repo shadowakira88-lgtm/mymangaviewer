@@ -238,4 +238,10 @@
     <string name="pref_discord_show_download_button_summary">Displays a button to download the app</string>
     <string name="pref_discord_show_discord_button">Show Discord Button</string>
     <string name="pref_discord_show_discord_button_summary">Displays a button to join the Discord server</string>
+    <string name="pref_kodi_layout">Kodi-style library</string>
+    <string name="pref_kodi_layout_summary">Cover on the left and a list on the right, controller friendly</string>
+    <string name="pref_vr_mode">VR mode (side by side)</string>
+    <string name="pref_vr_mode_summary">Shows the app twice, left and right, for phone VR goggles. Press Start on the controller to toggle</string>
+    <string name="vr_mode_on">VR Mode ON</string>
+    <string name="vr_mode_off">VR Mode OFF</string>
 </resources>

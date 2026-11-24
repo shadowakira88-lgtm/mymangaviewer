@@ -288,6 +288,18 @@ object SettingsAppearanceScreen : SearchableSettings {
             preferenceItems = persistentListOf(
                 // KMK -->
                 Preference.PreferenceItem.SwitchPreference(
+                    preference = uiPreferences.kodiLayout(),
+                    title = stringResource(KMR.strings.pref_kodi_layout),
+                    subtitle = stringResource(KMR.strings.pref_kodi_layout_summary),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = uiPreferences.vrMode(),
+                    title = stringResource(KMR.strings.pref_vr_mode),
+                    subtitle = stringResource(KMR.strings.pref_vr_mode_summary),
+                ),
+                // KMK <--
+                // KMK -->
+                Preference.PreferenceItem.SwitchPreference(
                     preference = uiPreferences.usePanoramaCoverFlow(),
                     title = stringResource(KMR.strings.pref_panorama_cover_flow),
                     subtitle = stringResource(KMR.strings.pref_panorama_cover_flow_summary),

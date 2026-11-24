@@ -19,13 +19,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import eu.kanade.core.preference.PreferenceMutableState
+import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.screens.EmptyScreen
+import tachiyomi.presentation.core.util.collectAsState
 import tachiyomi.presentation.core.util.plus
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 
 @Composable
 fun LibraryPager(
@@ -54,6 +58,10 @@ fun LibraryPager(
         }
         val category = getCategoryForPage(page)
         val items = getItemsForCategory(category)
+        // KMK -->
+        val kodiLayoutPref = remember { Injekt.get<UiPreferences>().kodiLayout() }
+        val kodiLayout by kodiLayoutPref.collectAsState()
+        // KMK <--
 
         if (items.isEmpty()) {
             LibraryPagerEmptyScreen(
@@ -64,6 +72,22 @@ fun LibraryPager(
             )
             return@HorizontalPager
         }
+
+        // KMK -->
+        if (kodiLayout) {
+            KodiLibraryList(
+                items = items,
+                stateKey = category.id,
+                requestFocus = page == state.currentPage,
+                contentPadding = contentPadding,
+                selection = selection,
+                onClick = { onClickManga(category, it) },
+                onLongClick = { onLongClickManga(category, it) },
+                onClickContinueReading = onClickContinueReading,
+            )
+            return@HorizontalPager
+        }
+        // KMK <--
 
         val displayMode by getDisplayMode(page)
         val columns by if (displayMode != LibraryDisplayMode.List) {

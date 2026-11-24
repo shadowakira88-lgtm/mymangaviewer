@@ -25,6 +25,14 @@ class UiPreferences(
     fun themeDarkAmoled() = preferenceStore.getBoolean("pref_theme_dark_amoled_key", false)
 
     // KMK -->
+    /** Kodi-style library: cover on the left, list on the right. */
+    fun kodiLayout() = preferenceStore.getBoolean("pref_kodi_layout_key", true)
+
+    /** Side-by-side (left/right eye) rendering for phone VR goggles. */
+    fun vrMode() = preferenceStore.getBoolean("pref_vr_mode_key", false)
+    // KMK <--
+
+    // KMK -->
     fun colorTheme() = preferenceStore.getInt("pref_color_theme", 0xFFDF0090.toInt())
 
     fun customThemeStyle() = preferenceStore.getEnum("pref_custom_theme_style_key", PaletteStyle.Fidelity)
