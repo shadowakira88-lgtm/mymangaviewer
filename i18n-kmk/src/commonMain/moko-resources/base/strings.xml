@@ -242,6 +242,8 @@
     <string name="pref_kodi_layout_summary">Cover on the left and a list on the right, controller friendly</string>
     <string name="pref_vr_mode">VR mode (side by side)</string>
     <string name="pref_vr_mode_summary">Shows the app twice, left and right, for phone VR goggles. Press Start on the controller to toggle</string>
+    <string name="kodi_menu_elenaku">Elenaku</string>
+    <string name="vr_settings">VR settings</string>
     <string name="vr_mode_on">VR Mode ON</string>
     <string name="vr_mode_off">VR Mode OFF</string>
 </resources>

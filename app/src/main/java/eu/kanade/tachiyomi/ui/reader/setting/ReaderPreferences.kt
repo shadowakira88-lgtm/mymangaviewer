@@ -50,7 +50,9 @@ class ReaderPreferences(
 
     fun defaultOrientationType() = preferenceStore.getInt(
         "pref_default_orientation_type_key",
-        ReaderOrientation.FREE.flagValue,
+        // KMK -->
+        ReaderOrientation.LANDSCAPE.flagValue,
+        // KMK <--
     )
 
     fun webtoonDoubleTapZoomEnabled() = preferenceStore.getBoolean("pref_enable_double_tap_zoom_webtoon", true)

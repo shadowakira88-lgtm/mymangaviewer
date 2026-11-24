@@ -129,10 +129,9 @@ fun LibraryContent(
                     }
                 },
                 onClickGroup = { index ->
-                    scope.launch {
-                        pagerState.scrollToPage(index)
-                        openGroup = true
-                    }
+                    // The pager is not composed yet, so only request the page and open the group.
+                    pagerState.requestScrollToPage(index)
+                    openGroup = true
                 },
             )
         } else {

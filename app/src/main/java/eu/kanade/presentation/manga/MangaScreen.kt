@@ -210,6 +210,26 @@ fun MangaScreen(
     hazeState: HazeState,
     // KMK <--
 ) {
+    // KMK -->
+    val kodiLayoutPref = remember { Injekt.get<UiPreferences>().kodiLayout() }
+    val kodiLayout by kodiLayoutPref.collectAsState()
+    if (kodiLayout) {
+        KodiMangaScreen(
+            state = state,
+            onBack = navigateUp,
+            onChapterClicked = onChapterClicked,
+            onAddToLibraryClicked = onAddToLibraryClicked,
+            onContinueReading = onContinueReading,
+            onWebViewClicked = onWebViewClicked,
+            onTrackingClicked = onTrackingClicked,
+            onFilterClicked = onFilterButtonClicked,
+            onMultiBookmarkClicked = onMultiBookmarkClicked,
+            onMultiMarkAsReadClicked = onMultiMarkAsReadClicked,
+        )
+        return
+    }
+    // KMK <--
+
     val context = LocalContext.current
     val onCopyTagToClipboard: (tag: String) -> Unit = {
         if (it.isNotEmpty()) {

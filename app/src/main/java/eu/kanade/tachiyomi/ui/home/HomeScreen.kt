@@ -29,6 +29,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -45,8 +46,10 @@ import eu.kanade.presentation.kodi.KodiHome
 import eu.kanade.presentation.kodi.KodiMenuAction
 import eu.kanade.presentation.kodi.KodiMenuEntry
 import eu.kanade.presentation.kodi.KodiPoster
+import eu.kanade.presentation.more.settings.screen.SettingsAppearanceScreen
 import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.util.isTabletUi
+import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.ui.browse.BrowseTab
 import eu.kanade.tachiyomi.ui.download.DownloadQueueScreen
 import eu.kanade.tachiyomi.ui.history.HistoryTab
@@ -251,6 +254,7 @@ object HomeScreen : Screen() {
     private fun KodiHomeContent(onOpenTab: (eu.kanade.presentation.util.Tab) -> Unit) {
         val navigator = LocalNavigator.currentOrThrow
         val scope = rememberCoroutineScope()
+        val context = LocalContext.current
         val vrPref = remember { Injekt.get<UiPreferences>().vrMode() }
         val vrEnabled by vrPref.collectAsState()
 
@@ -298,16 +302,22 @@ object HomeScreen : Screen() {
                 ),
             ),
             KodiMenuEntry(
-                title = stringResource(MR.strings.label_settings),
+                title = stringResource(KMR.strings.kodi_menu_elenaku),
                 actions = listOf(
-                    KodiMenuAction(stringResource(MR.strings.label_settings)) { navigator.push(SettingsScreen()) },
-                    KodiMenuAction(MoreTab.options.title) { onOpenTab(MoreTab) },
-                    KodiMenuAction(stringResource(MR.strings.label_download_queue)) {
-                        navigator.push(DownloadQueueScreen)
-                    },
                     KodiMenuAction(
                         stringResource(if (vrEnabled) KMR.strings.vr_mode_on else KMR.strings.vr_mode_off),
                     ) { scope.launch { vrPref.set(!vrEnabled) } },
+                    KodiMenuAction(stringResource(KMR.strings.vr_settings)) {
+                        navigator.push(SettingsAppearanceScreen)
+                    },
+                    KodiMenuAction(stringResource(MR.strings.action_update_library)) {
+                        LibraryUpdateJob.startNow(context)
+                    },
+                    KodiMenuAction(stringResource(MR.strings.label_settings)) { navigator.push(SettingsScreen()) },
+                    KodiMenuAction(stringResource(MR.strings.label_download_queue)) {
+                        navigator.push(DownloadQueueScreen)
+                    },
+                    KodiMenuAction(MoreTab.options.title) { onOpenTab(MoreTab) },
                 ),
             ),
         )
