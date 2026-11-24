@@ -46,7 +46,7 @@ import eu.kanade.presentation.kodi.KodiHome
 import eu.kanade.presentation.kodi.KodiMenuAction
 import eu.kanade.presentation.kodi.KodiMenuEntry
 import eu.kanade.presentation.kodi.KodiPoster
-import eu.kanade.presentation.more.settings.screen.SettingsAppearanceScreen
+import eu.kanade.presentation.more.settings.screen.SettingsVrScreen
 import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.util.isTabletUi
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
@@ -308,7 +308,7 @@ object HomeScreen : Screen() {
                         stringResource(if (vrEnabled) KMR.strings.vr_mode_on else KMR.strings.vr_mode_off),
                     ) { scope.launch { vrPref.set(!vrEnabled) } },
                     KodiMenuAction(stringResource(KMR.strings.vr_settings)) {
-                        navigator.push(SettingsAppearanceScreen)
+                        navigator.push(SettingsVrScreen)
                     },
                     KodiMenuAction(stringResource(MR.strings.action_update_library)) {
                         LibraryUpdateJob.startNow(context)

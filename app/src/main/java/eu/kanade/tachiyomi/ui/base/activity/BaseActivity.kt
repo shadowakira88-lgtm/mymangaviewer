@@ -2,18 +2,25 @@ package eu.kanade.tachiyomi.ui.base.activity
 
 import android.content.Context
 import android.content.pm.ActivityInfo
+import android.os.Build
 import android.os.Bundle
 import android.view.KeyEvent
 import android.view.ViewGroup
+import android.view.WindowManager
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.tachiyomi.ui.base.delegate.SecureActivityDelegate
 import eu.kanade.tachiyomi.ui.base.delegate.SecureActivityDelegateImpl
 import eu.kanade.tachiyomi.ui.base.delegate.ThemingDelegate
 import eu.kanade.tachiyomi.ui.base.delegate.ThemingDelegateImpl
+import eu.kanade.tachiyomi.ui.base.vr.VrCalibration
 import eu.kanade.tachiyomi.ui.base.vr.VrSbsLayout
 import eu.kanade.tachiyomi.util.system.prepareTabletUiContext
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import uy.kohesive.injekt.Injekt
@@ -61,19 +68,52 @@ open class BaseActivity :
         )
         vrLayout = vr
 
+        val uiPreferences = Injekt.get<UiPreferences>()
+        val density = resources.displayMetrics.density
         val initialOrientation = requestedOrientation
         var wasEnabled = false
-        Injekt.get<UiPreferences>().vrMode().changes()
+
+        combine(
+            uiPreferences.vrUiScale().changes(),
+            uiPreferences.vrEyeFill().changes(),
+            uiPreferences.vrAspect().changes(),
+            uiPreferences.vrSeparation().changes(),
+            uiPreferences.vrOffsetY().changes(),
+        ) { uiScale, eyeFill, aspect, separation, offsetY ->
+            VrCalibration(
+                uiScale = uiScale / 100f,
+                eyeFill = eyeFill / 100f,
+                aspect = aspect / 100f,
+                separationPx = separation * density,
+                offsetYPx = offsetY * density,
+            )
+        }
+            .onEach { vr.calibration = it }
+            .launchIn(lifecycleScope)
+
+        uiPreferences.vrMode().changes()
             .onEach { enabled ->
                 vr.vrEnabled = enabled
+                val controller = WindowCompat.getInsetsController(window, window.decorView)
                 if (enabled) {
                     requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                    controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                    controller.hide(WindowInsetsCompat.Type.systemBars())
+                    setCutoutMode(WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES)
                 } else if (wasEnabled) {
                     requestedOrientation = initialOrientation
+                    controller.show(WindowInsetsCompat.Type.systemBars())
+                    setCutoutMode(WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT)
                 }
                 wasEnabled = enabled
             }
             .launchIn(lifecycleScope)
+    }
+
+    private fun setCutoutMode(mode: Int) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            window.attributes = window.attributes.also { it.layoutInDisplayCutoutMode = mode }
+        }
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {

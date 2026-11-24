@@ -244,6 +244,16 @@
     <string name="pref_vr_mode_summary">Shows the app twice, left and right, for phone VR goggles. Press Start on the controller to toggle</string>
     <string name="kodi_menu_elenaku">Elenaku</string>
     <string name="vr_settings">VR settings</string>
+    <string name="vr_ui_size">UI size</string>
+    <string name="vr_ui_size_summary">Smaller fits more of the screen into each eye</string>
+    <string name="vr_eye_area">Eye area (zoom)</string>
+    <string name="vr_eye_area_summary">How much of each half of the screen is used</string>
+    <string name="vr_pixel_ratio">Pixel ratio</string>
+    <string name="vr_pixel_ratio_summary">Stretch or squeeze the picture horizontally</string>
+    <string name="vr_eye_separation">Eye separation</string>
+    <string name="vr_eye_separation_summary">Move the left and right pictures apart or closer</string>
+    <string name="vr_vertical_shift">Vertical shift</string>
+    <string name="vr_reset">Reset VR calibration</string>
     <string name="vr_mode_on">VR Mode ON</string>
     <string name="vr_mode_off">VR Mode OFF</string>
 </resources>

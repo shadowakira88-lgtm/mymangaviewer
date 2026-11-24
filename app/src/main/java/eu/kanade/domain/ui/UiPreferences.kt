@@ -30,6 +30,21 @@ class UiPreferences(
 
     /** Side-by-side (left/right eye) rendering for phone VR goggles. */
     fun vrMode() = preferenceStore.getBoolean("pref_vr_mode_key", false)
+
+    /** VR: UI size in percent. Smaller means more room for the layout in each eye. */
+    fun vrUiScale() = preferenceStore.getInt("pref_vr_ui_scale", 50)
+
+    /** VR: how much of each eye's half of the screen is used, in percent. */
+    fun vrEyeFill() = preferenceStore.getInt("pref_vr_eye_fill", 90)
+
+    /** VR: pixel ratio (horizontal stretch), in percent. */
+    fun vrAspect() = preferenceStore.getInt("pref_vr_aspect", 100)
+
+    /** VR: eye separation in dp, positive moves the two images apart. */
+    fun vrSeparation() = preferenceStore.getInt("pref_vr_separation", 0)
+
+    /** VR: vertical shift in dp, positive moves down. */
+    fun vrOffsetY() = preferenceStore.getInt("pref_vr_offset_y", 0)
     // KMK <--
 
     // KMK -->

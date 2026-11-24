@@ -14,7 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -96,11 +96,17 @@ fun KodiHome(
             }
 
             Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.Top,
             ) {
                 menu.forEachIndexed { index, entry ->
                     KodiMenuColumn(
+                        modifier = Modifier
+                            .weight(1f)
+                            .widthIn(max = 132.dp),
                         entry = entry,
                         isSelected = index == selected,
                         onSelected = { selected = index },
@@ -147,13 +153,14 @@ private fun KodiPosterItem(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun KodiMenuColumn(
+    modifier: Modifier,
     entry: KodiMenuEntry,
     isSelected: Boolean,
     onSelected: () -> Unit,
     labelModifier: Modifier,
 ) {
     Column(
-        modifier = Modifier.width(132.dp),
+        modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         var labelFocused by remember { mutableStateOf(false) }
