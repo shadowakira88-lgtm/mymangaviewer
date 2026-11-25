@@ -161,7 +161,6 @@ fun KodiHome(
 }
 
 @OptIn(ExperimentalFoundationApi::class)
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun KodiUpdateButton(label: String, onClick: () -> Unit, modifier: Modifier) {
     var hasFocus by remember { mutableStateOf(false) }
@@ -220,6 +219,7 @@ private fun KodiPosterItem(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun KodiMenuLabel(
     modifier: Modifier,
