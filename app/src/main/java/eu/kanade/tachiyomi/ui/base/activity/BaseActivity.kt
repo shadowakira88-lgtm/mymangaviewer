@@ -5,6 +5,7 @@ import android.content.pm.ActivityInfo
 import android.os.Build
 import android.os.Bundle
 import android.view.KeyEvent
+import eu.kanade.tachiyomi.ui.base.ControllerMapping
 import android.view.ViewGroup
 import android.view.WindowManager
 import androidx.appcompat.app.AppCompatActivity
@@ -116,23 +117,29 @@ open class BaseActivity :
         }
     }
 
-    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+    final override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (ControllerMapping.capturing) return super.dispatchKeyEvent(event)
+        // Apply the user's controller mapping first.
+        val e = ControllerMapping.translate(event) ?: return true
         // Controller Start button toggles VR mode from anywhere in the app.
-        if (event.keyCode == KeyEvent.KEYCODE_BUTTON_START) {
-            if (event.action == KeyEvent.ACTION_UP) {
+        if (e.keyCode == KeyEvent.KEYCODE_BUTTON_START) {
+            if (e.action == KeyEvent.ACTION_UP) {
                 val pref = Injekt.get<UiPreferences>().vrMode()
                 pref.set(!pref.get())
             }
             return true
         }
-        // Controller B button acts as Back.
-        if (event.keyCode == KeyEvent.KEYCODE_BUTTON_B) {
-            if (event.action == KeyEvent.ACTION_UP) {
+        // Back button (B by default) acts as Back.
+        if (e.keyCode == KeyEvent.KEYCODE_BUTTON_B) {
+            if (e.action == KeyEvent.ACTION_UP) {
                 onBackPressedDispatcher.onBackPressed()
             }
             return true
         }
-        return super.dispatchKeyEvent(event)
+        return onMappedKeyEvent(e)
     }
+
+    /** Receives key events after the controller mapping has been applied. */
+    protected open fun onMappedKeyEvent(event: KeyEvent): Boolean = super.dispatchKeyEvent(event)
     // KMK <--
 }

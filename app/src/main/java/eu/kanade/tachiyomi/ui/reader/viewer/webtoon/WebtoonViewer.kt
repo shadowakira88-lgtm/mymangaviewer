@@ -412,6 +412,10 @@ class WebtoonViewer(
                 }
             }
             KeyEvent.KEYCODE_MENU -> if (isUp) activity.toggleMenu()
+            // KMK -->
+            KeyEvent.KEYCODE_BUTTON_R1 -> if (isUp) scrollDown()
+            KeyEvent.KEYCODE_BUTTON_L1 -> if (isUp) scrollUp()
+            // KMK <--
 
             KeyEvent.KEYCODE_DPAD_LEFT,
             KeyEvent.KEYCODE_DPAD_UP,

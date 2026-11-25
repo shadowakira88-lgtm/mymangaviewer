@@ -604,10 +604,66 @@ class ReaderActivity : BaseActivity() {
     /**
      * Dispatches a key event. If the viewer doesn't handle it, call the default implementation.
      */
-    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+    override fun onMappedKeyEvent(event: KeyEvent): Boolean {
+        // KMK -->
+        if (event.keyCode == KeyEvent.KEYCODE_BUTTON_X) {
+            if (event.action == KeyEvent.ACTION_UP) toggleMagnifier()
+            return true
+        }
+        if (magnifierActive) {
+            val step = (48 * resources.displayMetrics.density).toInt() * (1 + event.repeatCount.coerceAtMost(4))
+            val moved = when (event.keyCode) {
+                KeyEvent.KEYCODE_DPAD_LEFT -> moveMagnifier(-step, 0)
+                KeyEvent.KEYCODE_DPAD_RIGHT -> moveMagnifier(step, 0)
+                KeyEvent.KEYCODE_DPAD_UP -> moveMagnifier(0, -step)
+                KeyEvent.KEYCODE_DPAD_DOWN -> moveMagnifier(0, step)
+                else -> null
+            }
+            if (moved != null) return true
+        }
+        // KMK <--
         val handled = viewModel.state.value.viewer?.handleKeyEvent(event) ?: false
-        return handled || super.dispatchKeyEvent(event)
+        return handled || super.onMappedKeyEvent(event)
     }
+
+    // KMK -->
+    private var magnifier: android.widget.Magnifier? = null
+    private var magnifierActive = false
+    private var lensX = 0f
+    private var lensY = 0f
+
+    /** Shows a loupe over the page; D-pad moves it, pressing the magnifier button again removes it. */
+    private fun toggleMagnifier() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            toast("Magnifier needs Android 10+")
+            return
+        }
+        if (magnifierActive) {
+            magnifier?.dismiss()
+            magnifier = null
+            magnifierActive = false
+            return
+        }
+        val view = binding.viewerContainer
+        magnifier = android.widget.Magnifier.Builder(view)
+            .setInitialZoom(2.2f)
+            .setSize((220 * resources.displayMetrics.density).toInt(), (220 * resources.displayMetrics.density).toInt())
+            .setCornerRadius(110 * resources.displayMetrics.density)
+            .build()
+        lensX = view.width / 2f
+        lensY = view.height / 2f
+        magnifierActive = true
+        magnifier?.show(lensX, lensY, lensX, lensY)
+    }
+
+    private fun moveMagnifier(dx: Int, dy: Int): Unit? {
+        val view = binding.viewerContainer
+        lensX = (lensX + dx).coerceIn(0f, view.width.toFloat())
+        lensY = (lensY + dy).coerceIn(0f, view.height.toFloat())
+        magnifier?.show(lensX, lensY, lensX, lensY)
+        return Unit
+    }
+    // KMK <--
 
     /**
      * Dispatches a generic motion event. If the viewer doesn't handle it, call the default

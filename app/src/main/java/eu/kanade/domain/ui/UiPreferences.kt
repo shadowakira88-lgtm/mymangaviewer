@@ -46,6 +46,9 @@ class UiPreferences(
     /** VR: vertical shift in dp, positive moves down. */
     fun vrOffsetY() = preferenceStore.getInt("pref_vr_offset_y", 0)
 
+    /** Controller mapping: key code assigned to an action (see ControllerMapping). */
+    fun controllerKey(action: String, default: Int) = preferenceStore.getInt("pref_ctrl_$action", default)
+
     /** GitHub repository (owner/name) whose `latest` release is used for in-app updates. */
     fun updateRepo() = preferenceStore.getString("pref_elena_update_repo", "shadowakira88-lgtm/mymangaviewer")
     // KMK <--

@@ -3,6 +3,7 @@ package eu.kanade.presentation.kodi
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -23,6 +24,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,6 +41,10 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -73,6 +79,7 @@ import eu.kanade.tachiyomi.data.sync.SyncDataJob
 import eu.kanade.tachiyomi.data.sync.SyncManager
 import eu.kanade.tachiyomi.data.sync.service.SupabaseAuth
 import eu.kanade.tachiyomi.data.updater.ElenaUpdater
+import eu.kanade.tachiyomi.ui.base.ControllerMapping
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.launch
 import tachiyomi.i18n.MR
@@ -299,6 +306,10 @@ object SystemSettingsScreen : Screen() {
                     stringResource(KMR.strings.system_account_sync_summary),
                 ) { navigator.push(AccountSyncScreen) },
                 KodiListItem(
+                    stringResource(KMR.strings.controller_mapping),
+                    stringResource(KMR.strings.controller_mapping_summary),
+                ) { navigator.push(ControllerMappingScreen) },
+                KodiListItem(
                     stringResource(KMR.strings.system_update),
                     stringResource(KMR.strings.system_update_summary),
                 ) { navigator.push(UpdateScreen) },
@@ -497,6 +508,84 @@ object UpdateScreen : Screen() {
             ) {
                 repoPref.set(it.ifBlank { ElenaUpdater.DEFAULT_REPO })
                 showRepoDialog = false
+            }
+        }
+    }
+}
+object ControllerMappingScreen : Screen() {
+    @Suppress("unused")
+    private fun readResolve(): Any = ControllerMappingScreen
+
+    @Composable
+    override fun Content() {
+        var capturing by remember { mutableStateOf<ControllerMapping.Action?>(null) }
+        // Re-read the labels after a key was assigned.
+        var version by remember { mutableStateOf(0) }
+
+        fun title(a: ControllerMapping.Action): StringResource = when (a) {
+            ControllerMapping.Action.UP -> KMR.strings.controller_dpad_up
+            ControllerMapping.Action.DOWN -> KMR.strings.controller_dpad_down
+            ControllerMapping.Action.LEFT -> KMR.strings.controller_dpad_left
+            ControllerMapping.Action.RIGHT -> KMR.strings.controller_dpad_right
+            ControllerMapping.Action.CONFIRM -> KMR.strings.controller_confirm
+            ControllerMapping.Action.BACK -> KMR.strings.controller_back
+            ControllerMapping.Action.NEXT_PAGE -> KMR.strings.controller_next_page
+            ControllerMapping.Action.PREV_PAGE -> KMR.strings.controller_prev_page
+            ControllerMapping.Action.MAGNIFIER -> KMR.strings.controller_magnifier
+        }
+
+        val labelTitles = ControllerMapping.Action.entries.associateWith { stringResource(title(it)) }
+
+        KodiListPage(
+            title = stringResource(KMR.strings.controller_mapping),
+            items = buildList {
+                ControllerMapping.Action.entries.forEach { action ->
+                    add(
+                        KodiListItem(
+                            labelTitles.getValue(action),
+                            // reading `version` makes the list refresh after a change
+                            ControllerMapping.label(ControllerMapping.keyFor(action)).also { version },
+                        ) { capturing = action },
+                    )
+                }
+                add(
+                    KodiListItem(stringResource(KMR.strings.controller_reset)) {
+                        ControllerMapping.reset()
+                        version++
+                    },
+                )
+            },
+        )
+
+        capturing?.let { action ->
+            val focus = remember { FocusRequester() }
+            DisposableEffect(Unit) {
+                ControllerMapping.capturing = true
+                onDispose { ControllerMapping.capturing = false }
+            }
+            LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xE6000000))
+                    .focusRequester(focus)
+                    .focusable()
+                    .onPreviewKeyEvent { event ->
+                        if (event.type == KeyEventType.KeyUp) {
+                            ControllerMapping.setKey(action, event.nativeKeyEvent.keyCode)
+                            version++
+                            capturing = null
+                        }
+                        true
+                    }
+                    .pointerInput(Unit) { detectTapGestures { capturing = null } },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    stringResource(KMR.strings.controller_press_button, labelTitles.getValue(action)),
+                    color = Color.White,
+                    fontSize = 18.sp,
+                )
             }
         }
     }

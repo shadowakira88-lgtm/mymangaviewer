@@ -465,6 +465,10 @@ abstract class PagerViewer(
             KeyEvent.KEYCODE_PAGE_DOWN -> if (isUp) moveDown()
             KeyEvent.KEYCODE_PAGE_UP -> if (isUp) moveUp()
             KeyEvent.KEYCODE_MENU -> if (isUp) activity.toggleMenu()
+            // KMK -->
+            KeyEvent.KEYCODE_BUTTON_R1 -> if (isUp) moveToNext()
+            KeyEvent.KEYCODE_BUTTON_L1 -> if (isUp) moveToPrevious()
+            // KMK <--
             else -> return false
         }
         return true

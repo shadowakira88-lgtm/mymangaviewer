@@ -287,4 +287,17 @@
     <string name="supabase_set_first">Fill in Supabase URL and anon key first</string>
     <string name="action_ok">OK</string>
     <string name="action_cancel_kodi">Cancel</string>
+    <string name="controller_mapping">Controller mapping</string>
+    <string name="controller_mapping_summary">Choose which button does what</string>
+    <string name="controller_press_button">Press a button on the controller for: %1$s\n(tap the screen to cancel)</string>
+    <string name="controller_reset">Reset to default</string>
+    <string name="controller_dpad_up">D-pad up</string>
+    <string name="controller_dpad_down">D-pad down</string>
+    <string name="controller_dpad_left">D-pad left</string>
+    <string name="controller_dpad_right">D-pad right</string>
+    <string name="controller_confirm">Confirm</string>
+    <string name="controller_back">Back</string>
+    <string name="controller_next_page">Next page</string>
+    <string name="controller_prev_page">Previous page</string>
+    <string name="controller_magnifier">Magnifier / Update</string>
 </resources>
