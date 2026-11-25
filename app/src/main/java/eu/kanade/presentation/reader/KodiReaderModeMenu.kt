@@ -58,8 +58,8 @@ fun KodiReaderModeMenu(
                 Chip(
                     KMR.strings.reader_bookmark,
                     bookmarked,
-                    onToggleBookmark,
                     prefix = if (bookmarked) "\u2605 " else "\u2606 ",
+                    onClick = onToggleBookmark,
                 )
             }
         }
@@ -67,7 +67,7 @@ fun KodiReaderModeMenu(
 }
 
 @Composable
-private fun Chip(label: StringResource, selected: Boolean, onClick: () -> Unit, prefix: String = "") {
+private fun Chip(label: StringResource, selected: Boolean, prefix: String = "", onClick: () -> Unit) {
     Text(
         text = prefix + stringResource(label),
         color = if (selected) Color(0xFF6CA9D9) else Color.White,
