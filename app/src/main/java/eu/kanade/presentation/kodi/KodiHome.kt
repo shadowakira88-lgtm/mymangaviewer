@@ -161,6 +161,65 @@ fun KodiHome(
 }
 
 @OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun KodiUpdateButton(label: String, onClick: () -> Unit, modifier: Modifier) {
+    var hasFocus by remember { mutableStateOf(false) }
+    Text(
+        text = "\u21BB  $label",
+        color = if (hasFocus) QuartzBlue else QuartzDim,
+        fontSize = 13.sp,
+        modifier = modifier
+            .onFocusChanged { hasFocus = it.isFocused }
+            .border(
+                BorderStroke(1.5.dp, if (hasFocus) QuartzBorder else Color.Transparent),
+                RoundedCornerShape(3.dp),
+            )
+            .onKeyEvent { event ->
+                if (event.type == KeyEventType.KeyUp && event.key == Key.ButtonA) {
+                    onClick()
+                    true
+                } else {
+                    false
+                }
+            }
+            .combinedClickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+    )
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun KodiPosterItem(
+    poster: KodiPoster,
+    onClick: () -> Unit,
+) {
+    var hasFocus by remember { mutableStateOf(false) }
+    Box(
+        modifier = Modifier
+            .onFocusChanged { hasFocus = it.isFocused }
+            .border(
+                border = BorderStroke(2.dp, if (hasFocus) QuartzBorder else Color.Transparent),
+                shape = RoundedCornerShape(3.dp),
+            )
+            .onKeyEvent { event ->
+                if (event.type == KeyEventType.KeyUp && event.key == Key.ButtonA) {
+                    onClick()
+                    true
+                } else {
+                    false
+                }
+            }
+            .combinedClickable(onClick = onClick)
+            .padding(2.dp),
+    ) {
+        MangaCover.Book(
+            data = poster.cover,
+            modifier = Modifier.height(96.dp),
+        )
+    }
+}
+
 @Composable
 private fun KodiMenuLabel(
     modifier: Modifier,
