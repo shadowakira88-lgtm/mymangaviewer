@@ -622,11 +622,18 @@ class ReaderActivity : BaseActivity() {
             if (moved != null) return true
         }
         // KMK <--
+        // KMK -->
+        // While the Kodi menu is open the D-pad and A button drive the menu, not the page viewer.
+        if (viewModel.state.value.menuVisible && kodiReaderUi) return super.onMappedKeyEvent(event)
+        // KMK <--
         val handled = viewModel.state.value.viewer?.handleKeyEvent(event) ?: false
         return handled || super.onMappedKeyEvent(event)
     }
 
     // KMK -->
+    private val kodiReaderUi: Boolean
+        get() = Injekt.get<eu.kanade.domain.ui.UiPreferences>().kodiLayout().get()
+
     private var magnifier: android.widget.Magnifier? = null
     private var magnifierActive = false
     private var lensX = 0f
@@ -740,17 +747,54 @@ class ReaderActivity : BaseActivity() {
         // SY <--
 
         // KMK -->
-        eu.kanade.presentation.reader.KodiReaderModeMenu(
-            visible = state.menuVisible,
-            current = ReadingMode.fromPreference(readingMode),
-            onSelect = viewModel::setMangaReadingMode,
-            bookmarked = state.bookmarked,
-            onToggleBookmark = viewModel::toggleChapterBookmark,
-        )
+        val kodiReader by remember {
+            Injekt.get<eu.kanade.domain.ui.UiPreferences>().kodiLayout()
+        }.collectAsState()
+        if (kodiReader) {
+            androidx.activity.compose.BackHandler(enabled = state.menuVisible) { setMenuVisibility(false) }
+            val currentMode = ReadingMode.fromPreference(readingMode)
+            eu.kanade.presentation.reader.KodiReaderOsd(
+                visible = state.menuVisible,
+                mangaTitle = state.manga?.title,
+                chapterTitle = state.currentChapter?.chapter?.name,
+                currentPage = state.currentPage,
+                totalPages = state.totalPages,
+                onPageIndexChange = {
+                    isScrollingThroughPages = true
+                    moveToPageIndex(it)
+                },
+                hasPrevChapter = state.viewerChapters?.prevChapter != null,
+                hasNextChapter = state.viewerChapters?.nextChapter != null,
+                onPrevChapter = ::loadPreviousChapter,
+                onNextChapter = ::loadNextChapter,
+                mode = currentMode,
+                onCycleMode = {
+                    viewModel.setMangaReadingMode(
+                        when (currentMode) {
+                            ReadingMode.RIGHT_TO_LEFT -> ReadingMode.LEFT_TO_RIGHT
+                            ReadingMode.LEFT_TO_RIGHT -> ReadingMode.WEBTOON
+                            else -> ReadingMode.RIGHT_TO_LEFT
+                        },
+                    )
+                },
+                bookmarked = state.bookmarked,
+                onToggleBookmark = viewModel::toggleChapterBookmark,
+                onChapterList = viewModel::openChapterListDialog,
+                onToggleCrop = {
+                    val enabled = viewModel.toggleCropBorders()
+                    menuToggleToast?.cancel()
+                    menuToggleToast = toast(if (enabled) MR.strings.on else MR.strings.off)
+                },
+                onSettings = viewModel::openSettingsDialog,
+                onBack = onBackPressedDispatcher::onBackPressed,
+            )
+        }
         // KMK <--
 
         ReaderAppBars(
-            visible = state.menuVisible,
+            // KMK -->
+            visible = state.menuVisible && !kodiReader,
+            // KMK <--
 
             mangaTitle = state.manga?.title,
             chapterTitle = state.currentChapter?.chapter?.name,
@@ -994,6 +1038,11 @@ class ReaderActivity : BaseActivity() {
      */
     private fun setMenuVisibility(visible: Boolean) {
         viewModel.showMenus(visible)
+        // KMK -->
+        if (visible && kodiReaderUi) {
+            // Kodi menu keeps the screen full size
+        } else
+        // KMK <--
         if (visible) {
             windowInsetsController.show(WindowInsetsCompat.Type.systemBars())
         } else if (readerPreferences.fullscreen().get()) {

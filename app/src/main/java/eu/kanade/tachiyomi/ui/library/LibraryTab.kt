@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.graphics.res.animatedVectorResource
 import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
 import androidx.compose.animation.graphics.vector.AnimatedImageVector
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
@@ -14,10 +15,19 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
@@ -31,7 +41,9 @@ import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.library.DeleteLibraryMangaDialog
+import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.library.LibrarySettingsDialog
+import eu.kanade.presentation.library.components.KodiLibraryTitle
 import eu.kanade.presentation.library.components.LibraryContent
 import eu.kanade.presentation.library.components.LibraryToolbar
 import eu.kanade.presentation.library.components.SyncFavoritesConfirmDialog
@@ -118,6 +130,13 @@ data object LibraryTab : Tab {
 
         val snackbarHostState = remember { SnackbarHostState() }
 
+        // KMK -->
+        // Kodi layout: only the group title is shown; press right / swipe left to reveal the toolbar actions.
+        val kodiLayout by remember { Injekt.get<UiPreferences>().kodiLayout() }.collectAsState()
+        var actionsRevealed by rememberSaveable { mutableStateOf(false) }
+        androidx.activity.compose.BackHandler(enabled = kodiLayout && actionsRevealed) { actionsRevealed = false }
+        // KMK <--
+
         val onClickRefresh: (Category?) -> Boolean = { category ->
             // SY -->
             val started = LibraryUpdateJob.startNow(
@@ -144,12 +163,45 @@ data object LibraryTab : Tab {
         }
 
         Scaffold(
+            // KMK -->
+            modifier = Modifier
+                .onKeyEvent { event ->
+                    if (!kodiLayout || event.type != KeyEventType.KeyDown) {
+                        false
+                    } else if (event.key == Key.DirectionRight && !actionsRevealed) {
+                        actionsRevealed = true
+                        true
+                    } else if (event.key == Key.DirectionLeft && actionsRevealed) {
+                        actionsRevealed = false
+                        true
+                    } else {
+                        false
+                    }
+                }
+                .pointerInput(kodiLayout) {
+                    if (kodiLayout) {
+                        var total = 0f
+                        detectHorizontalDragGestures(
+                            onDragStart = { total = 0f },
+                            onDragEnd = {
+                                if (total < -80f) actionsRevealed = true else if (total > 80f) actionsRevealed = false
+                            },
+                        ) { _, amount -> total += amount }
+                    }
+                },
+            // KMK <--
             topBar = { scrollBehavior ->
                 val title = state.getToolbarTitle(
                     defaultTitle = stringResource(MR.strings.label_library),
                     defaultCategoryTitle = stringResource(MR.strings.label_default),
                     page = state.coercedActiveCategoryIndex,
                 )
+                // KMK -->
+                if (kodiLayout && state.selection.isEmpty() && !actionsRevealed) {
+                    val groupTitle = state.activeCategory?.takeUnless { it.isSystemCategory }?.name ?: title.text
+                    KodiLibraryTitle(title = groupTitle, count = title.numberOfManga)
+                } else
+                // KMK <--
                 LibraryToolbar(
                     hasActiveFilters = state.hasActiveFilters,
                     selectedCount = state.selection.size,

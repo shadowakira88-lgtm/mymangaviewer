@@ -3,13 +3,17 @@ package eu.kanade.presentation.kodi
 import android.text.format.DateUtils
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.domain.source.interactor.GetEnabledSources
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreen
+import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import kotlinx.coroutines.flow.collectLatest
@@ -136,7 +140,7 @@ object KodiBookmarksScreen : Screen() {
     }
 }
 
-/** Installed sources. Tap = browse the source. */
+/** Installed sources. Tap = browse the source. Buttons under the title: global search and 18+ filter. */
 object KodiSourcesScreen : Screen() {
     @Suppress("unused")
     private fun readResolve(): Any = KodiSourcesScreen
@@ -144,10 +148,12 @@ object KodiSourcesScreen : Screen() {
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
+        var nsfwOnly by remember { mutableStateOf(false) }
         val sources by produceState(initialValue = emptyList<tachiyomi.domain.source.model.Source>()) {
             Injekt.get<GetEnabledSources>().subscribe().collectLatest { value = it }
         }
         val items = sources
+            .filter { !nsfwOnly || it.installedExtension?.isNsfw != false }
             .sortedWith(compareBy({ it.lang }, { it.name.lowercase() }))
             .map { source ->
                 KodiListItem(
@@ -158,6 +164,14 @@ object KodiSourcesScreen : Screen() {
         KodiListPage(
             title = stringResource(MR.strings.label_sources),
             items = items.ifEmpty { listOf(emptyItem()) },
+            headerActions = listOf(
+                KodiListItem(stringResource(KMR.strings.kodi_sources_search)) {
+                    navigator.push(GlobalSearchScreen())
+                },
+                KodiListItem(
+                    stringResource(if (nsfwOnly) KMR.strings.kodi_sources_nsfw_on else KMR.strings.kodi_sources_nsfw_off),
+                ) { nsfwOnly = !nsfwOnly },
+            ),
         )
     }
 }

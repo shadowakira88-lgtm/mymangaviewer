@@ -28,6 +28,9 @@ class UiPreferences(
     /** Kodi-style library: cover on the left, list on the right. */
     fun kodiLayout() = preferenceStore.getBoolean("pref_kodi_layout_key", true)
 
+    /** Version stamp of the custom Kodi wallpaper (0 = none). */
+    fun kodiWallpaperVersion() = preferenceStore.getLong("pref_kodi_wallpaper_version", 0L)
+
     /** Side-by-side (left/right eye) rendering for phone VR goggles. */
     fun vrMode() = preferenceStore.getBoolean("pref_vr_mode_key", false)
 

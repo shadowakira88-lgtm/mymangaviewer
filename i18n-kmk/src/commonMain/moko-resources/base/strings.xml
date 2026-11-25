@@ -319,4 +319,14 @@
     <string name="kodi_extension_install">Press to install</string>
     <string name="kodi_extension_working">Working…</string>
     <string name="kodi_migrate_count">%1$d in library</string>
+    <string name="kodi_sources_search">Search</string>
+    <string name="kodi_sources_nsfw_off">18+ filter: off</string>
+    <string name="kodi_sources_nsfw_on">18+ filter: on</string>
+    <string name="wallpaper_setting">Wallpaper</string>
+    <string name="wallpaper_setting_summary">Choose a background picture for the Kodi screens</string>
+    <string name="wallpaper_reset">Reset wallpaper</string>
+    <string name="wallpaper_reset_summary">Go back to the plain background</string>
+    <string name="wallpaper_set_ok">Wallpaper updated</string>
+    <string name="wallpaper_set_failed">Could not use that picture</string>
+    <string name="reader_osd_close">Close</string>
 </resources>

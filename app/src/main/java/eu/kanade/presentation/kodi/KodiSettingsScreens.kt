@@ -1,5 +1,8 @@
 package eu.kanade.presentation.kodi
 
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -114,15 +117,15 @@ data class KodiListItem(
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun KodiListPage(title: String, items: List<KodiListItem>) {
+fun KodiListPage(title: String, items: List<KodiListItem>, headerActions: List<KodiListItem> = emptyList()) {
     var focused by remember { mutableStateOf(0) }
     val first = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
 
+    KodiWallpaperBox(fallback = KodiBg) {
     Row(
         modifier = Modifier
             .fillMaxSize()
-            .background(KodiBg)
             .statusBarsPadding()
             .padding(horizontal = 24.dp, vertical = 12.dp),
     ) {
@@ -134,6 +137,7 @@ fun KodiListPage(title: String, items: List<KodiListItem>) {
             verticalArrangement = Arrangement.Top,
         ) {
             Text(title, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            headerActions.forEach { KodiHeaderButton(it) }
             items.getOrNull(focused)?.subtitle?.let {
                 Text(it, color = KodiDim, fontSize = 12.sp, modifier = Modifier.padding(top = 12.dp))
             }
@@ -191,6 +195,35 @@ fun KodiListPage(title: String, items: List<KodiListItem>) {
             }
         }
     }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun KodiHeaderButton(item: KodiListItem) {
+    var hasFocus by remember { mutableStateOf(false) }
+    Text(
+        text = item.title,
+        color = if (hasFocus) KodiBlue else Color.White,
+        fontSize = 14.sp,
+        modifier = Modifier
+            .padding(top = 10.dp)
+            .onFocusChanged { hasFocus = it.isFocused }
+            .border(
+                BorderStroke(1.5.dp, if (hasFocus) KodiLine else Color(0xFF555555)),
+                RoundedCornerShape(3.dp),
+            )
+            .onKeyEvent { event ->
+                if (event.type == KeyEventType.KeyUp && event.key == Key.ButtonA) {
+                    item.onClick()
+                    true
+                } else {
+                    false
+                }
+            }
+            .combinedClickable(onClick = item.onClick)
+            .padding(horizontal = 12.dp, vertical = 7.dp),
+    )
 }
 
 @Composable
@@ -310,6 +343,18 @@ object SystemSettingsScreen : Screen() {
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
+        val context = LocalContext.current
+        val okText = stringResource(KMR.strings.wallpaper_set_ok)
+        val failText = stringResource(KMR.strings.wallpaper_set_failed)
+        val pickWallpaper = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+            if (uri != null) {
+                Toast.makeText(
+                    context,
+                    if (KodiWallpaper.set(context, uri)) okText else failText,
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }
+        }
         KodiListPage(
             title = stringResource(KMR.strings.system_settings),
             items = listOf(
@@ -322,6 +367,14 @@ object SystemSettingsScreen : Screen() {
                     stringResource(KMR.strings.controller_mapping),
                     stringResource(KMR.strings.controller_mapping_summary),
                 ) { navigator.push(ControllerMappingScreen) },
+                KodiListItem(
+                    stringResource(KMR.strings.wallpaper_setting),
+                    stringResource(KMR.strings.wallpaper_setting_summary),
+                ) { pickWallpaper.launch("image/*") },
+                KodiListItem(
+                    stringResource(KMR.strings.wallpaper_reset),
+                    stringResource(KMR.strings.wallpaper_reset_summary),
+                ) { KodiWallpaper.clear(context) },
                 KodiListItem(
                     stringResource(KMR.strings.system_update),
                     stringResource(KMR.strings.system_update_summary),

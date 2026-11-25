@@ -40,18 +40,21 @@ class SupabaseSyncService(
     override suspend fun doSync(syncData: SyncData): Backup? {
         return try {
             check(auth.isConfigured && auth.isSignedIn) { "Supabase account not signed in" }
+            notifier.showSyncProgress(progress = 10)
             val token = auth.freshToken()
             val base = syncPreferences.supabaseUrl().get().trim().trimEnd('/')
             val uid = syncPreferences.supabaseUserId().get()
             val objectUrl = "$base/storage/v1/object/$BUCKET/$uid/$OBJECT"
 
             val remote = pull("$base/storage/v1/object/authenticated/$BUCKET/$uid/$OBJECT", token)
+            notifier.showSyncProgress(progress = 40)
             val finalData = if (remote != null) mergeSyncData(syncData, remote) else syncData
 
             val backup = finalData.backup ?: return null
             val bytes = protoBuf.encodeToByteArray(Backup.serializer(), backup)
             if (bytes.isEmpty()) throw IllegalStateException(context.stringResource(MR.strings.empty_backup_error))
 
+            notifier.showSyncProgress(progress = 65)
             val headers = auth.authHeaders(token).newBuilder().add("x-upsert", "true").build()
             val req = POST(objectUrl, headers, bytes.toRequestBody("application/octet-stream".toMediaType()))
             network.client.newCall(req).await().use { response ->
@@ -62,6 +65,7 @@ class SupabaseSyncService(
                     return null
                 }
             }
+            notifier.showSyncProgress(progress = 90)
             finalData.backup
         } catch (e: Exception) {
             if (e is CancellationException) throw e

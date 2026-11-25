@@ -129,6 +129,7 @@ import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.release.interactor.GetApplicationRelease
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.kmk.KMR
+import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.util.collectAsState
 import uy.kohesive.injekt.Injekt
@@ -236,6 +237,34 @@ class MainActivity : BaseActivity() {
             val restoringProgress by backupRestoreStatus.progress.collectAsState()
             val syncingProgress by syncStatus.progress.collectAsState()
             val updatingProgress by libraryUpdateStatus.progress.collectAsState()
+            // Kodi UI: no white banners, a transparent popup instead, and a full-screen app.
+            val kodiUi by remember { Injekt.get<eu.kanade.domain.ui.UiPreferences>().kodiLayout() }.collectAsState()
+            val kodiPercent = remember { java.text.NumberFormat.getPercentInstance() }
+            val kodiPopupText: String? = if (!kodiUi) {
+                null
+            } else {
+                when {
+                    updating -> stringResource(
+                        MR.strings.notification_updating_progress,
+                        kodiPercent.format(updatingProgress),
+                    )
+                    syncing -> stringResource(MR.strings.syncing_library) +
+                        " (${kodiPercent.format(syncingProgress)})"
+                    restoring -> stringResource(MR.strings.restoring_backup) +
+                        " (${kodiPercent.format(restoringProgress)})"
+                    else -> null
+                }
+            }
+            LaunchedEffect(kodiUi) {
+                val controller = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
+                if (kodiUi) {
+                    controller.systemBarsBehavior =
+                        androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                    controller.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+                } else {
+                    controller.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+                }
+            }
             // KMK <--
 
             val isSystemInDarkTheme = isSystemInDarkTheme()
@@ -308,9 +337,9 @@ class MainActivity : BaseActivity() {
                             incognitoMode = incognito,
                             indexing = indexing,
                             // KMK -->
-                            restoring = restoring,
-                            syncing = syncing,
-                            updating = updating,
+                            restoring = restoring && !kodiUi,
+                            syncing = syncing && !kodiUi,
+                            updating = updating && !kodiUi,
                             progress = updatingProgress.takeIf { updating }
                                 ?: syncingProgress.takeIf { syncing }
                                 ?: restoringProgress.takeIf { restoring },
@@ -329,6 +358,10 @@ class MainActivity : BaseActivity() {
                                 .padding(contentPadding)
                                 .consumeWindowInsets(contentPadding),
                         )
+
+                        // KMK -->
+                        eu.kanade.presentation.kodi.KodiStatusPopup(text = kodiPopupText)
+                        // KMK <--
 
                         // Draw navigation bar scrim when needed
                         if (remember { isNavigationBarNeedsScrim() }) {

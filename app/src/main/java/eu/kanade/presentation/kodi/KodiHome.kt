@@ -82,10 +82,10 @@ fun KodiHome(
         runCatching { firstMenuFocus.requestFocus() }
     }
 
+    KodiWallpaperBox(fallback = Color.Black) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
             .statusBarsPadding()
             .onKeyEvent { event ->
                 // X: update the whole library
@@ -157,6 +157,7 @@ fun KodiHome(
                 )
             }
         }
+    }
     }
 }
 
