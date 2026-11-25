@@ -33,12 +33,10 @@ fun OnboardingScreen(
 
     var currentStep by rememberSaveable { mutableIntStateOf(0) }
     val steps = remember {
-        listOf(
-            ThemeStep(),
-            StorageStep(),
-            PermissionStep(),
-            GuidesStep(onRestoreBackup = onRestoreBackup),
-        )
+        // KMK -->
+        // Theme, storage and permission steps are skipped (defaults are used); only the optional login is shown.
+        listOf(SupabaseLoginStep())
+        // KMK <--
     }
     val isLastStep = currentStep == steps.lastIndex
 

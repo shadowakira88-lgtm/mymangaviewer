@@ -42,17 +42,19 @@ import cafe.adriel.voyager.navigator.tab.TabNavigator
 import eu.kanade.core.preference.asState
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.domain.ui.UiPreferences
+import eu.kanade.presentation.kodi.KodiBookmarksScreen
+import eu.kanade.presentation.kodi.KodiExtensionsScreen
+import eu.kanade.presentation.kodi.KodiHistoryScreen
 import eu.kanade.presentation.kodi.KodiHome
 import eu.kanade.presentation.kodi.KodiMenuAction
-import eu.kanade.presentation.kodi.KodiBookmarksScreen
-import eu.kanade.presentation.kodi.KodiHistoryScreen
 import eu.kanade.presentation.kodi.KodiMenuEntry
+import eu.kanade.presentation.kodi.KodiMigrateScreen
+import eu.kanade.presentation.kodi.KodiNav
+import eu.kanade.presentation.kodi.KodiPoster
 import eu.kanade.presentation.kodi.KodiSourcesScreen
 import eu.kanade.presentation.kodi.KodiUpdatesScreen
-import eu.kanade.presentation.kodi.KodiNav
 import eu.kanade.presentation.kodi.KomikSettingsScreen
 import eu.kanade.presentation.kodi.SystemSettingsScreen
-import eu.kanade.presentation.kodi.KodiPoster
 import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.util.isTabletUi
 import eu.kanade.tachiyomi.ui.browse.BrowseTab
@@ -303,8 +305,6 @@ object HomeScreen : Screen() {
                         }
                     }
                 },
-                // Tapping the label itself opens the list of groups
-                labelOpensLibrary = { onOpenTab(LibraryTab) },
             ),
             KodiMenuEntry(
                 title = stringResource(KMR.strings.kodi_menu_latest),
@@ -316,7 +316,6 @@ object HomeScreen : Screen() {
                         navigator.push(KodiBookmarksScreen)
                     },
                 ),
-                labelOpensLibrary = { navigator.push(KodiUpdatesScreen) },
             ),
             KodiMenuEntry(
                 title = HistoryTab.options.title,
@@ -326,18 +325,16 @@ object HomeScreen : Screen() {
             ),
             KodiMenuEntry(
                 title = BrowseTab.options.title,
-                labelOpensLibrary = { navigator.push(KodiSourcesScreen) },
                 actions = listOf(
                     KodiMenuAction(stringResource(MR.strings.label_sources)) { navigator.push(KodiSourcesScreen) },
                     KodiMenuAction(stringResource(MR.strings.label_extensions)) {
-                        BrowseTab.showExtension()
-                        onOpenTab(BrowseTab)
+                        navigator.push(KodiExtensionsScreen)
                     },
+                    KodiMenuAction(stringResource(MR.strings.label_migration)) { navigator.push(KodiMigrateScreen) },
                 ),
             ),
             KodiMenuEntry(
                 title = stringResource(KMR.strings.kodi_menu_elenaku),
-                labelRunsFirstAction = false,
                 actions = listOf(
                     KodiMenuAction(
                         stringResource(if (vrEnabled) KMR.strings.vr_mode_on else KMR.strings.vr_mode_off),

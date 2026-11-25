@@ -22,7 +22,6 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.activity.compose.BackHandler
 import eu.kanade.core.preference.PreferenceMutableState
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.tachiyomi.ui.library.LibraryItem
@@ -77,7 +76,7 @@ fun LibraryContent(
         // KMK -->
         val kodiLayoutPref = remember { Injekt.get<UiPreferences>().kodiLayout() }
         val kodiLayout by kodiLayoutPref.collectAsState()
-        var openGroup by rememberSaveable { mutableStateOf(false) }
+        var openGroup by rememberSaveable { mutableStateOf(true) }
         val hasGroups = categories.size > 1
         val showGroupList = kodiLayout && hasGroups && !openGroup && searchQuery.isNullOrEmpty()
         // Group picked from the home menu: jump straight into its manga list.
@@ -93,7 +92,6 @@ fun LibraryContent(
             }
         }
         // Back from a group's manga list returns to the list of groups.
-        BackHandler(enabled = kodiLayout && hasGroups && openGroup) { openGroup = false }
         // KMK <--
 
         if (/* KMK --> */ !kodiLayout && /* KMK <-- */ showPageTabs && categories.isNotEmpty() && (categories.size > 1 || !categories.first().isSystemCategory)) {

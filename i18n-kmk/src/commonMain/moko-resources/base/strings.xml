@@ -310,4 +310,13 @@
     <string name="latest_bookmarks">Bookmark</string>
     <string name="kodi_empty_list">Nothing here yet</string>
     <string name="reader_bookmark">Bookmark</string>
+    <string name="onboarding_login_skip_hint">Sign-in is optional. Press Finish to skip; you can do it later in System Settings.</string>
+    <string name="kodi_menu_browse_sources">Sources</string>
+    <string name="kodi_menu_browse_extensions">Extensions</string>
+    <string name="kodi_menu_browse_migrate">Migrate</string>
+    <string name="kodi_extension_installed">Installed</string>
+    <string name="kodi_extension_update">Update available - press to update</string>
+    <string name="kodi_extension_install">Press to install</string>
+    <string name="kodi_extension_working">Working…</string>
+    <string name="kodi_migrate_count">%1$d in library</string>
 </resources>

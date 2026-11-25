@@ -57,10 +57,6 @@ data class KodiMenuAction(val title: String, val onClick: () -> Unit)
 data class KodiMenuEntry(
     val title: String,
     val actions: List<KodiMenuAction>,
-    /** When false, pressing the label only selects it and never runs the first sub-item. */
-    val labelRunsFirstAction: Boolean = true,
-    /** If set, pressing the label runs this instead of the first sub-item. */
-    val labelOpensLibrary: (() -> Unit)? = null,
 )
 
 data class KodiPoster(val mangaId: Long, val cover: DomainMangaCover)
@@ -122,31 +118,43 @@ fun KodiHome(
             Spacer(modifier = Modifier.height(10.dp))
         }
 
-        // The menu (labels + the sub-items of the selected one) scrolls if the list is long
-        Column(
+        // Labels are fixed; only the sub-items underneath scroll when the list is long.
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.Top,
+        ) {
+            menu.forEachIndexed { index, entry ->
+                KodiMenuLabel(
+                    modifier = Modifier
+                        .weight(1f)
+                        .widthIn(max = 132.dp),
+                    entry = entry,
+                    onSelected = { selected = index },
+                    labelModifier = if (index == 0) Modifier.focusRequester(firstMenuFocus) else Modifier,
+                )
+            }
+        }
+        Row(
             modifier = Modifier
                 .weight(1f)
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally,
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 8.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.Top,
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.Top,
-            ) {
-                menu.forEachIndexed { index, entry ->
-                    KodiMenuColumn(
-                        modifier = Modifier
-                            .weight(1f)
-                            .widthIn(max = 132.dp),
-                        entry = entry,
-                        isSelected = index == selected,
-                        onSelected = { selected = index },
-                        labelModifier = if (index == 0) Modifier.focusRequester(firstMenuFocus) else Modifier,
-                    )
-                }
+            menu.forEachIndexed { index, entry ->
+                KodiMenuSubItems(
+                    modifier = Modifier
+                        .weight(1f)
+                        .widthIn(max = 132.dp),
+                    entry = entry,
+                    isSelected = index == selected,
+                    onSelected = { selected = index },
+                )
             }
         }
     }
@@ -154,108 +162,47 @@ fun KodiHome(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun KodiUpdateButton(label: String, onClick: () -> Unit, modifier: Modifier) {
-    var hasFocus by remember { mutableStateOf(false) }
+private fun KodiMenuLabel(
+    modifier: Modifier,
+    entry: KodiMenuEntry,
+    onSelected: () -> Unit,
+    labelModifier: Modifier,
+) {
+    var labelFocused by remember { mutableStateOf(false) }
     Text(
-        text = "\u21BB  $label",
-        color = if (hasFocus) QuartzBlue else QuartzDim,
-        fontSize = 13.sp,
+        text = entry.title,
+        color = if (labelFocused) QuartzBlue else Color.White,
+        fontSize = 15.sp,
+        textAlign = TextAlign.Center,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
         modifier = modifier
-            .onFocusChanged { hasFocus = it.isFocused }
-            .border(
-                BorderStroke(1.5.dp, if (hasFocus) QuartzBorder else Color.Transparent),
-                RoundedCornerShape(3.dp),
-            )
+            .then(labelModifier)
+            .onFocusChanged {
+                labelFocused = it.isFocused
+                if (it.isFocused) onSelected()
+            }
             .onKeyEvent { event ->
                 if (event.type == KeyEventType.KeyUp && event.key == Key.ButtonA) {
-                    onClick()
+                    onSelected()
                     true
                 } else {
                     false
                 }
             }
-            .combinedClickable(onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 6.dp),
+            .combinedClickable(onClick = onSelected)
+            .padding(vertical = 8.dp),
     )
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun KodiPosterItem(
-    poster: KodiPoster,
-    onClick: () -> Unit,
-) {
-    var hasFocus by remember { mutableStateOf(false) }
-    Box(
-        modifier = Modifier
-            .onFocusChanged { hasFocus = it.isFocused }
-            .border(
-                border = BorderStroke(2.dp, if (hasFocus) QuartzBorder else Color.Transparent),
-                shape = RoundedCornerShape(3.dp),
-            )
-            .onKeyEvent { event ->
-                if (event.type == KeyEventType.KeyUp && event.key == Key.ButtonA) {
-                    onClick()
-                    true
-                } else {
-                    false
-                }
-            }
-            .combinedClickable(onClick = onClick)
-            .padding(2.dp),
-    ) {
-        MangaCover.Book(
-            data = poster.cover,
-            modifier = Modifier.height(96.dp),
-        )
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun KodiMenuColumn(
+private fun KodiMenuSubItems(
     modifier: Modifier,
     entry: KodiMenuEntry,
     isSelected: Boolean,
     onSelected: () -> Unit,
-    labelModifier: Modifier,
 ) {
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        var labelFocused by remember { mutableStateOf(false) }
-        Text(
-            text = entry.title,
-            color = if (labelFocused) QuartzBlue else Color.White,
-            fontSize = 15.sp,
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = labelModifier
-                .fillMaxWidth()
-                .onFocusChanged {
-                    labelFocused = it.isFocused
-                    if (it.isFocused) onSelected()
-                }
-                .onKeyEvent { event ->
-                    if (event.type == KeyEventType.KeyUp && event.key == Key.ButtonA) {
-                        onSelected()
-                        labelPress(entry)
-                        true
-                    } else {
-                        false
-                    }
-                }
-                .combinedClickable(
-                    onClick = {
-                        onSelected()
-                        labelPress(entry)
-                    },
-                )
-                .padding(vertical = 8.dp),
-        )
-
+    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         if (isSelected) {
             entry.actions.forEach { action ->
                 KodiSubItem(action = action, onSelected = onSelected)
@@ -299,14 +246,5 @@ private fun KodiSubItem(
             .combinedClickable(onClick = action.onClick)
             .padding(vertical = 6.dp),
     )
-}
-
-private fun labelPress(entry: KodiMenuEntry) {
-    val own = entry.labelOpensLibrary
-    if (own != null) {
-        own()
-    } else if (entry.labelRunsFirstAction) {
-        entry.actions.firstOrNull()?.onClick?.invoke()
-    }
 }
 // KMK <--
