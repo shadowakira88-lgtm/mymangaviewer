@@ -300,4 +300,7 @@
     <string name="controller_next_page">Next page</string>
     <string name="controller_prev_page">Previous page</string>
     <string name="controller_magnifier">Magnifier / Update</string>
+    <string name="reader_mode_rtl">Right to left</string>
+    <string name="reader_mode_ltr">Left to right</string>
+    <string name="reader_mode_strip">Long strip</string>
 </resources>

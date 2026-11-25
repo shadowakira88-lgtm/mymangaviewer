@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -17,6 +19,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -60,9 +64,9 @@ private val KodiDim = Color(0xFF8C8C8C)
 
 /**
  * Kodi-style manga page: poster on the left, details, action buttons and the chapter list on the
- * right. Controller: D-pad = move, A = open, X = mark read/unread, Y = bookmark, B = back.
+ * right. Controller: D-pad = move, A = open, X = update this manga, long-press = mark read/unread, Y = bookmark, B = back.
  */
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
 fun KodiMangaScreen(
     state: MangaScreenModel.State.Success,
@@ -75,6 +79,7 @@ fun KodiMangaScreen(
     onFilterClicked: () -> Unit,
     onMultiBookmarkClicked: (List<Chapter>, Boolean) -> Unit,
     onMultiMarkAsReadClicked: (List<Chapter>, Boolean) -> Unit,
+    onRefresh: () -> Unit,
 ) {
     val manga = state.manga
     val cover = remember(manga) { manga.asMangaCover() }
@@ -104,33 +109,58 @@ fun KodiMangaScreen(
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 24.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(24.dp),
+                .padding(horizontal = 24.dp, vertical = 12.dp)
+                .onKeyEvent { event ->
+                    // X (magnifier/update button): update this manga only
+                    if (event.type == KeyEventType.KeyUp && event.key == Key.ButtonX) {
+                        onRefresh()
+                        true
+                    } else {
+                        false
+                    }
+                },
+            horizontalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            Box(
-                modifier = Modifier
-                    .weight(0.30f)
-                    .fillMaxHeight(),
-                contentAlignment = Alignment.Center,
-            ) {
-                MangaCover.Book(
-                    data = cover,
-                    modifier = Modifier.fillMaxHeight(0.92f),
-                )
-            }
-
+            // Left: smaller poster (tap = update this manga), then the details underneath it
             Column(
                 modifier = Modifier
-                    .weight(0.70f)
-                    .fillMaxHeight(),
+                    .weight(0.34f)
+                    .fillMaxHeight()
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
+                var coverFocused by remember { mutableStateOf(false) }
+                MangaCover.Book(
+                    data = cover,
+                    modifier = Modifier
+                        .height(130.dp)
+                        .onFocusChanged { coverFocused = it.isFocused }
+                        .border(
+                            BorderStroke(2.dp, if (coverFocused) KodiBorder else Color.Transparent),
+                            RoundedCornerShape(3.dp),
+                        )
+                        .onKeyEvent { event ->
+                            if (event.type == KeyEventType.KeyUp && event.key == Key.ButtonA) {
+                                onRefresh()
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                        .combinedClickable(onClick = onRefresh),
+                )
+                if (state.isRefreshingData) {
+                    Text("\u21BB ...", color = KodiBlue, fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp))
+                }
+
                 Text(
                     text = manga.title,
                     color = Color.White,
-                    fontSize = 20.sp,
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.Medium,
-                    maxLines = 2,
+                    maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 8.dp),
                 )
                 val subline = listOfNotNull(
                     manga.author?.takeIf { it.isNotBlank() },
@@ -139,20 +169,18 @@ fun KodiMangaScreen(
                 Text(
                     text = subline,
                     color = KodiDim,
-                    fontSize = 12.sp,
-                    maxLines = 1,
+                    fontSize = 11.sp,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 2.dp),
                 )
 
-                Row(
-                    modifier = Modifier.padding(top = 10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                FlowRow(
+                    modifier = Modifier.padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    KodiButton(
-                        text = "◀",
-                        onClick = onBack,
-                    )
+                    KodiButton(text = "\u25C0", onClick = onBack)
                     KodiButton(
                         text = stringResource(if (isReading) MR.strings.action_resume else MR.strings.action_start),
                         onClick = onContinueReading,
@@ -164,21 +192,12 @@ fun KodiMangaScreen(
                         ),
                         onClick = onAddToLibraryClicked,
                     )
-                    KodiButton(
-                        text = stringResource(MR.strings.action_filter),
-                        onClick = onFilterClicked,
-                    )
+                    KodiButton(text = stringResource(MR.strings.action_filter), onClick = onFilterClicked)
                     if (state.trackingCount > 0 || state.hasLoggedInTrackers) {
-                        KodiButton(
-                            text = stringResource(MR.strings.manga_tracking_tab),
-                            onClick = onTrackingClicked,
-                        )
+                        KodiButton(text = stringResource(MR.strings.manga_tracking_tab), onClick = onTrackingClicked)
                     }
                     if (onWebViewClicked != null) {
-                        KodiButton(
-                            text = stringResource(MR.strings.action_web_view),
-                            onClick = onWebViewClicked,
-                        )
+                        KodiButton(text = stringResource(MR.strings.action_web_view), onClick = onWebViewClicked)
                     }
                 }
 
@@ -186,19 +205,26 @@ fun KodiMangaScreen(
                     Text(
                         text = it,
                         color = Color(0xFFCFCFCF),
-                        fontSize = 12.sp,
-                        maxLines = 3,
+                        fontSize = 11.sp,
+                        maxLines = 8,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(top = 10.dp),
+                        modifier = Modifier.padding(top = 8.dp),
                     )
                 }
+            }
 
+            // Right: the chapter list fills the whole space
+            Column(
+                modifier = Modifier
+                    .weight(0.66f)
+                    .fillMaxHeight(),
+            ) {
                 Text(
                     text = "${chapters.size} ${stringResource(MR.strings.chapters)}",
                     color = Color.White,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(top = 10.dp, bottom = 4.dp),
+                    modifier = Modifier.padding(bottom = 4.dp),
                 )
 
                 LazyColumn(
@@ -285,10 +311,6 @@ private fun KodiChapterRow(
                 when (event.key) {
                     Key.ButtonA -> {
                         onClick()
-                        true
-                    }
-                    Key.ButtonX -> {
-                        onToggleRead()
                         true
                     }
                     Key.ButtonY -> {

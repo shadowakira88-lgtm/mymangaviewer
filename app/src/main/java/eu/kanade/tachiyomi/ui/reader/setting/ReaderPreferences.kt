@@ -63,7 +63,13 @@ class ReaderPreferences(
     fun webtoonPinchToZoomEnabled() = preferenceStore.getBoolean("pref_enable_pinch_to_zoom_webtoon", true)
     // KMK <--
 
-    fun imageScaleType() = preferenceStore.getInt("pref_image_scale_type_key", 1)
+    fun imageScaleType() = preferenceStore.getInt(
+        "pref_image_scale_type_key",
+        // KMK -->
+        // Fit width: one page at a time that can be scrolled down like a long strip
+        3,
+        // KMK <--
+    )
 
     // KMK -->
     fun webtoonScaleType() = preferenceStore.getEnum("pref_webtoon_scale_type_key", WebtoonScaleType.FIT)
@@ -204,7 +210,13 @@ class ReaderPreferences(
 
     fun readerBottomButtons() = preferenceStore.getStringSet("reader_bottom_buttons", ReaderBottomButton.BUTTONS_DEFAULTS)
 
-    fun pageLayout() = preferenceStore.getInt("page_layout", PagerConfig.PageLayout.AUTOMATIC)
+    fun pageLayout() = preferenceStore.getInt(
+        "page_layout",
+        // KMK -->
+        // One page per view; wide spreads are simply shown whole
+        PagerConfig.PageLayout.SINGLE_PAGE,
+        // KMK <--
+    )
 
     fun invertDoublePages() = preferenceStore.getBoolean("invert_double_pages", false)
 

@@ -739,6 +739,14 @@ class ReaderActivity : BaseActivity() {
         }
         // SY <--
 
+        // KMK -->
+        eu.kanade.presentation.reader.KodiReaderModeMenu(
+            visible = state.menuVisible,
+            current = ReadingMode.fromPreference(readingMode),
+            onSelect = viewModel::setMangaReadingMode,
+        )
+        // KMK <--
+
         ReaderAppBars(
             visible = state.menuVisible,
 
