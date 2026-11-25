@@ -329,4 +329,5 @@
     <string name="wallpaper_set_ok">Wallpaper updated</string>
     <string name="wallpaper_set_failed">Could not use that picture</string>
     <string name="reader_osd_close">Close</string>
+    <string name="kodi_migrate_other_sources">Other sources</string>
 </resources>

@@ -24,6 +24,12 @@ class MigratingManga(
 
     val searchResult = MutableStateFlow<SearchResult>(SearchResult.Searching)
 
+    // KMK -->
+    /** Other sources' matches (small covers on the right in the Kodi layout). Null until loaded. */
+    val alternatives = MutableStateFlow<List<SearchResult.Success>?>(null)
+    val alternativesLoading = MutableStateFlow(false)
+    // KMK <--
+
     sealed interface SearchResult {
         data object Searching : SearchResult
         data object NotFound : SearchResult

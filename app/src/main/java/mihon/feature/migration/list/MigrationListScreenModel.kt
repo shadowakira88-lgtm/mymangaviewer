@@ -297,6 +297,40 @@ class MigrationListScreenModel(
         }
     }
 
+    // KMK -->
+    /** Searches the migration sources for other matches of [mangaId] and keeps them as alternatives. */
+    fun loadAlternatives(mangaId: Long) {
+        val item = items.find { it.manga.id == mangaId } ?: return
+        if (item.alternativesLoading.value) return
+        item.alternativesLoading.value = true
+        screenModelScope.launchIO {
+            try {
+                val sources = preferences.migrationSources().get().mapNotNull { sourceManager.get(it) }
+                val currentTarget = (item.searchResult.value as? SearchResult.Success)?.manga?.id
+                val semaphore = Semaphore(3)
+                val found = sources
+                    .map { source ->
+                        async { semaphore.withPermit { searchSource(item.manga, source, deepSearchMode) } }
+                    }
+                    .awaitAll()
+                    .filterNotNull()
+                    .filter { it.second.chapterCount > 0 && it.first.id != currentTarget }
+                    .map { (manga, info) ->
+                        SearchResult.Success(
+                            manga = manga,
+                            chapterCount = info.chapterCount,
+                            latestChapter = info.latestChapter,
+                            source = sourceManager.getOrStub(manga.source).getNameForMangaInfo(),
+                        )
+                    }
+                item.alternatives.value = found
+            } finally {
+                item.alternativesLoading.value = false
+            }
+        }
+    }
+    // KMK <--
+
     fun migrateMangas() {
         migrateMangas(replace = true)
     }

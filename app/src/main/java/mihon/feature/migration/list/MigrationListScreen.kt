@@ -121,6 +121,16 @@ class MigrationListScreen(
             // KMK -->
             onCancel = { screenModel.cancelManga(it) },
             openOptionsDialog = screenModel::openOptionsDialog,
+            onLoadAlternatives = screenModel::loadAlternatives,
+            onPickAlternative = { current, target ->
+                screenModel.useMangaForMigration(
+                    current = current,
+                    target = target,
+                    onMissingChapters = {
+                        context.toast(MR.strings.migrationListScreen_matchWithoutChapterToast, Toast.LENGTH_LONG)
+                    },
+                )
+            },
             // KMK <--
         )
 

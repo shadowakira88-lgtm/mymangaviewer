@@ -49,6 +49,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.manga.components.MangaCover
@@ -68,7 +69,10 @@ import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.components.material.topSmallPaddingValues
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.util.collectAsState
 import tachiyomi.presentation.core.util.plus
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 
 @Composable
 fun MigrationListScreenContent(
@@ -84,8 +88,31 @@ fun MigrationListScreenContent(
     // KMK -->
     onCancel: (Long) -> Unit,
     openOptionsDialog: () -> Unit,
+    onLoadAlternatives: (Long) -> Unit = {},
+    onPickAlternative: (Long, Long) -> Unit = { _, _ -> },
     // KMK <--
 ) {
+    // KMK -->
+    val kodiLayout by remember { Injekt.get<UiPreferences>().kodiLayout() }.collectAsState()
+    if (kodiLayout) {
+        KodiMigrationListContent(
+            items = items,
+            migrationComplete = migrationComplete,
+            finishedCount = finishedCount,
+            onItemClick = onItemClick,
+            onSearchManually = onSearchManually,
+            onSkip = onSkip,
+            onMigrate = onMigrate,
+            onCopy = onCopy,
+            openMigrationDialog = openMigrationDialog,
+            onCancel = onCancel,
+            openOptionsDialog = openOptionsDialog,
+            onLoadAlternatives = onLoadAlternatives,
+            onPickAlternative = onPickAlternative,
+        )
+        return
+    }
+    // KMK <--
     Scaffold(
         topBar = { scrollBehavior ->
             AppBar(
