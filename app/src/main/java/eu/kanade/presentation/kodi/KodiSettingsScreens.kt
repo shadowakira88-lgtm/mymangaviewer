@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
@@ -73,6 +74,7 @@ import eu.kanade.presentation.more.settings.screen.SettingsSecurityScreen
 import eu.kanade.presentation.more.settings.screen.SettingsTrackingScreen
 import eu.kanade.presentation.more.settings.screen.SettingsVrScreen
 import eu.kanade.presentation.more.settings.screen.about.AboutScreen
+import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.data.sync.SyncDataJob
@@ -82,6 +84,7 @@ import eu.kanade.tachiyomi.data.updater.ElenaUpdater
 import eu.kanade.tachiyomi.ui.base.ControllerMapping
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.launch
+import tachiyomi.domain.manga.model.MangaCover as DomainMangaCover
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.kmk.KMR
 import tachiyomi.i18n.sy.SYMR
@@ -100,6 +103,8 @@ private val KodiDim = Color(0xFFB0B0B0)
 data class KodiListItem(
     val title: String,
     val subtitle: String? = null,
+    val cover: DomainMangaCover? = null,
+    val onLongClick: (() -> Unit)? = null,
     val onClick: () -> Unit,
 )
 
@@ -132,6 +137,9 @@ fun KodiListPage(title: String, items: List<KodiListItem>) {
             items.getOrNull(focused)?.subtitle?.let {
                 Text(it, color = KodiDim, fontSize = 12.sp, modifier = Modifier.padding(top = 12.dp))
             }
+            items.getOrNull(focused)?.cover?.let {
+                MangaCover.Book(data = it, modifier = Modifier.padding(top = 12.dp).height(140.dp))
+            }
         }
         LazyColumn(
             modifier = Modifier
@@ -154,14 +162,19 @@ fun KodiListPage(title: String, items: List<KodiListItem>) {
                             RoundedCornerShape(3.dp),
                         )
                         .onKeyEvent { event ->
-                            if (event.type == KeyEventType.KeyUp && event.key == Key.ButtonA) {
+                            if (event.type != KeyEventType.KeyUp) {
+                                false
+                            } else if (event.key == Key.ButtonA) {
                                 item.onClick()
+                                true
+                            } else if (event.key == Key.ButtonY && item.onLongClick != null) {
+                                item.onLongClick.invoke()
                                 true
                             } else {
                                 false
                             }
                         }
-                        .combinedClickable(onClick = item.onClick)
+                        .combinedClickable(onClick = item.onClick, onLongClick = item.onLongClick)
                         .padding(horizontal = 14.dp, vertical = 12.dp),
                 ) {
                     Text(

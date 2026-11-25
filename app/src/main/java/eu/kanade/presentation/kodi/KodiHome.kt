@@ -14,6 +14,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -83,10 +86,11 @@ fun KodiHome(
         runCatching { firstMenuFocus.requestFocus() }
     }
 
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
+            .statusBarsPadding()
             .onKeyEvent { event ->
                 // X: update the whole library
                 if (event.type == KeyEventType.KeyUp && event.key == Key.ButtonX) {
@@ -96,30 +100,35 @@ fun KodiHome(
                     false
                 }
             },
-        contentAlignment = Alignment.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        KodiUpdateButton(
-            label = updateLabel,
-            onClick = onUpdateAll,
+        Row(
             modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(top = 28.dp, end = 12.dp),
-        )
+                .fillMaxWidth()
+                .padding(end = 12.dp),
+            horizontalArrangement = Arrangement.End,
+        ) {
+            KodiUpdateButton(label = updateLabel, onClick = onUpdateAll, modifier = Modifier)
+        }
+        if (posters.isNotEmpty()) {
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 24.dp),
+            ) {
+                items(posters, key = { it.mangaId }) { poster ->
+                    KodiPosterItem(poster = poster, onClick = { onClickPoster(poster.mangaId) })
+                }
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+        }
+
+        // The menu (labels + the sub-items of the selected one) scrolls if the list is long
         Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            if (posters.isNotEmpty()) {
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 24.dp),
-                ) {
-                    items(posters, key = { it.mangaId }) { poster ->
-                        KodiPosterItem(poster = poster, onClick = { onClickPoster(poster.mangaId) })
-                    }
-                }
-                Spacer(modifier = Modifier.height(18.dp))
-            }
-
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -197,7 +206,7 @@ private fun KodiPosterItem(
     ) {
         MangaCover.Book(
             data = poster.cover,
-            modifier = Modifier.height(112.dp),
+            modifier = Modifier.height(96.dp),
         )
     }
 }

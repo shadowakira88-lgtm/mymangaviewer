@@ -32,6 +32,8 @@ fun KodiReaderModeMenu(
     visible: Boolean,
     current: ReadingMode,
     onSelect: (ReadingMode) -> Unit,
+    bookmarked: Boolean,
+    onToggleBookmark: () -> Unit,
 ) {
     AnimatedVisibility(visible = visible, enter = fadeIn(), exit = fadeOut()) {
         Box(
@@ -53,15 +55,21 @@ fun KodiReaderModeMenu(
                 Chip(KMR.strings.reader_mode_strip, current == ReadingMode.WEBTOON) {
                     onSelect(ReadingMode.WEBTOON)
                 }
+                Chip(
+                    KMR.strings.reader_bookmark,
+                    bookmarked,
+                    onToggleBookmark,
+                    prefix = if (bookmarked) "\u2605 " else "\u2606 ",
+                )
             }
         }
     }
 }
 
 @Composable
-private fun Chip(label: StringResource, selected: Boolean, onClick: () -> Unit) {
+private fun Chip(label: StringResource, selected: Boolean, onClick: () -> Unit, prefix: String = "") {
     Text(
-        text = stringResource(label),
+        text = prefix + stringResource(label),
         color = if (selected) Color(0xFF6CA9D9) else Color.White,
         fontSize = 13.sp,
         modifier = Modifier

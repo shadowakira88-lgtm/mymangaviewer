@@ -744,6 +744,8 @@ class ReaderActivity : BaseActivity() {
             visible = state.menuVisible,
             current = ReadingMode.fromPreference(readingMode),
             onSelect = viewModel::setMangaReadingMode,
+            bookmarked = state.bookmarked,
+            onToggleBookmark = viewModel::toggleChapterBookmark,
         )
         // KMK <--
 

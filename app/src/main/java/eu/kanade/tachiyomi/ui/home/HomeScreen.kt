@@ -44,7 +44,11 @@ import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.kodi.KodiHome
 import eu.kanade.presentation.kodi.KodiMenuAction
+import eu.kanade.presentation.kodi.KodiBookmarksScreen
+import eu.kanade.presentation.kodi.KodiHistoryScreen
 import eu.kanade.presentation.kodi.KodiMenuEntry
+import eu.kanade.presentation.kodi.KodiSourcesScreen
+import eu.kanade.presentation.kodi.KodiUpdatesScreen
 import eu.kanade.presentation.kodi.KodiNav
 import eu.kanade.presentation.kodi.KomikSettingsScreen
 import eu.kanade.presentation.kodi.SystemSettingsScreen
@@ -303,17 +307,28 @@ object HomeScreen : Screen() {
                 labelOpensLibrary = { onOpenTab(LibraryTab) },
             ),
             KodiMenuEntry(
-                title = UpdatesTab.options.title,
-                actions = listOf(KodiMenuAction(UpdatesTab.options.title) { onOpenTab(UpdatesTab) }),
+                title = stringResource(KMR.strings.kodi_menu_latest),
+                actions = listOf(
+                    KodiMenuAction(stringResource(KMR.strings.latest_updates)) {
+                        navigator.push(KodiUpdatesScreen)
+                    },
+                    KodiMenuAction(stringResource(KMR.strings.latest_bookmarks)) {
+                        navigator.push(KodiBookmarksScreen)
+                    },
+                ),
+                labelOpensLibrary = { navigator.push(KodiUpdatesScreen) },
             ),
             KodiMenuEntry(
                 title = HistoryTab.options.title,
-                actions = listOf(KodiMenuAction(HistoryTab.options.title) { onOpenTab(HistoryTab) }),
+                actions = listOf(
+                    KodiMenuAction(HistoryTab.options.title) { navigator.push(KodiHistoryScreen) },
+                ),
             ),
             KodiMenuEntry(
                 title = BrowseTab.options.title,
+                labelOpensLibrary = { navigator.push(KodiSourcesScreen) },
                 actions = listOf(
-                    KodiMenuAction(stringResource(MR.strings.label_sources)) { onOpenTab(BrowseTab) },
+                    KodiMenuAction(stringResource(MR.strings.label_sources)) { navigator.push(KodiSourcesScreen) },
                     KodiMenuAction(stringResource(MR.strings.label_extensions)) {
                         BrowseTab.showExtension()
                         onOpenTab(BrowseTab)
