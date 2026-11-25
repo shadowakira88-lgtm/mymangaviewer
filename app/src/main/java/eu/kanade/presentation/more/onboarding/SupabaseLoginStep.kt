@@ -5,9 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -81,9 +79,8 @@ internal class SupabaseLoginStep : OnboardingStep {
         }
 
         Column(
-            modifier = Modifier
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
+            // The onboarding page already scrolls, so no verticalScroll here (it would crash).
+            modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(stringResource(KMR.strings.system_account_sync_summary))
