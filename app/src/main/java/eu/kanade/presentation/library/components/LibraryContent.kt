@@ -80,6 +80,18 @@ fun LibraryContent(
         var openGroup by rememberSaveable { mutableStateOf(false) }
         val hasGroups = categories.size > 1
         val showGroupList = kodiLayout && hasGroups && !openGroup && searchQuery.isNullOrEmpty()
+        // Group picked from the home menu: jump straight into its manga list.
+        LaunchedEffect(categories) {
+            val id = eu.kanade.presentation.kodi.KodiNav.pendingCategoryId
+            if (kodiLayout && id != null && categories.isNotEmpty()) {
+                eu.kanade.presentation.kodi.KodiNav.pendingCategoryId = null
+                val index = categories.indexOfFirst { it.id == id }
+                if (index >= 0) {
+                    pagerState.requestScrollToPage(index)
+                    openGroup = true
+                }
+            }
+        }
         // Back from a group's manga list returns to the list of groups.
         BackHandler(enabled = kodiLayout && hasGroups && openGroup) { openGroup = false }
         // KMK <--

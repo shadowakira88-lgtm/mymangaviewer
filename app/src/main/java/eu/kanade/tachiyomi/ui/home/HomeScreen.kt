@@ -45,12 +45,14 @@ import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.kodi.KodiHome
 import eu.kanade.presentation.kodi.KodiMenuAction
 import eu.kanade.presentation.kodi.KodiMenuEntry
+import eu.kanade.presentation.kodi.KodiNav
 import eu.kanade.presentation.kodi.KomikSettingsScreen
 import eu.kanade.presentation.kodi.SystemSettingsScreen
 import eu.kanade.presentation.kodi.KodiPoster
 import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.util.isTabletUi
 import eu.kanade.tachiyomi.ui.browse.BrowseTab
+import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.ui.download.DownloadQueueScreen
 import eu.kanade.tachiyomi.ui.history.HistoryTab
 import eu.kanade.tachiyomi.ui.library.LibraryTab
@@ -260,7 +262,8 @@ object HomeScreen : Screen() {
         val posters by produceState(initialValue = emptyList<KodiPoster>()) {
             value = runCatching {
                 Injekt.get<GetLibraryManga>().await()
-                    .sortedByDescending { it.lastRead }
+                    // Newest updated manga first (left)
+                    .sortedByDescending { it.latestUpload }
                     .take(14)
                     .map {
                         KodiPoster(
@@ -277,10 +280,27 @@ object HomeScreen : Screen() {
             }.getOrDefault(emptyList())
         }
 
+        val groups by produceState(initialValue = emptyList<tachiyomi.domain.category.model.Category>()) {
+            Injekt.get<tachiyomi.domain.category.interactor.GetCategories>().subscribe().collect { list ->
+                value = list.filter { !it.isSystemCategory && !it.hidden }
+            }
+        }
+
         val menu = listOf(
             KodiMenuEntry(
                 title = LibraryTab.options.title,
-                actions = listOf(KodiMenuAction(LibraryTab.options.title) { onOpenTab(LibraryTab) }),
+                actions = if (groups.isEmpty()) {
+                    listOf(KodiMenuAction(LibraryTab.options.title) { onOpenTab(LibraryTab) })
+                } else {
+                    groups.map { group ->
+                        KodiMenuAction(group.name) {
+                            KodiNav.pendingCategoryId = group.id
+                            onOpenTab(LibraryTab)
+                        }
+                    }
+                },
+                // Tapping the label itself opens the list of groups
+                labelOpensLibrary = { onOpenTab(LibraryTab) },
             ),
             KodiMenuEntry(
                 title = UpdatesTab.options.title,
@@ -321,6 +341,8 @@ object HomeScreen : Screen() {
             menu = menu,
             posters = posters,
             onClickPoster = { navigator.push(MangaScreen(it)) },
+            updateLabel = stringResource(MR.strings.action_update_library),
+            onUpdateAll = { LibraryUpdateJob.startNow(context) },
         )
     }
     // KMK <--
