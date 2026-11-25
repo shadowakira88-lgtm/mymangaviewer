@@ -25,12 +25,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.util.fastForEach
 import eu.kanade.core.util.fastFilterNot
+import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.presentation.components.AdaptiveSheet
 import mihon.domain.migration.models.MigrationFlag
@@ -46,6 +48,8 @@ import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.theme.active
 import tachiyomi.presentation.core.theme.header
 import tachiyomi.presentation.core.util.collectAsState
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 
 @Composable
 fun MigrationConfigScreenSheet(
@@ -59,6 +63,13 @@ fun MigrationConfigScreenSheet(
 ) {
     var extraSearchQuery by rememberSaveable { mutableStateOf("") }
     val migrationFlags by preferences.migrationFlags().collectAsState()
+    // KMK -->
+    val kodiLayout by remember { Injekt.get<UiPreferences>().kodiLayout() }.collectAsState()
+    if (kodiLayout) {
+        KodiMigrationConfigSheet(preferences, onDismissRequest, onStartMigration, fullSettings, isSingleEntry)
+        return
+    }
+    // KMK <--
     AdaptiveSheet(onDismissRequest = onDismissRequest) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Column(
