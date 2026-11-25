@@ -269,7 +269,9 @@
     <string name="system_update_available">New build available (%1$s). Press to download and install</string>
     <string name="system_update_latest">You already have the newest build</string>
     <string name="system_update_failed">Update check failed: %1$s</string>
-    <string name="system_update_started">Downloading update…</string>
+    <string name="system_update_started">Downloading</string>
+    <string name="system_update_installing">Downloaded. Confirm the install on the next screen</string>
+    <string name="system_update_permission">Allow ElenaManga to install apps, go back and press download again</string>
     <string name="supabase_url">Supabase URL</string>
     <string name="supabase_anon_key">Supabase anon key</string>
     <string name="supabase_status_signed_in">Signed in as %1$s</string>

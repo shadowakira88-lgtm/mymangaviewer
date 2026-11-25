@@ -467,7 +467,10 @@ object UpdateScreen : Screen() {
 
         val checking = stringResource(KMR.strings.system_update_checking)
         val latest = stringResource(KMR.strings.system_update_latest)
-        val started = stringResource(KMR.strings.system_update_started)
+        val downloadingLabel = stringResource(KMR.strings.system_update_started)
+        val installingLabel = stringResource(KMR.strings.system_update_installing)
+        val permissionLabel = stringResource(KMR.strings.system_update_permission)
+        var downloadPct by remember { mutableStateOf<Int?>(null) }
         val failedFmt = stringResource(KMR.strings.system_update_failed, "%s")
         val availableFmt = stringResource(KMR.strings.system_update_available, "%s")
 
@@ -504,9 +507,23 @@ object UpdateScreen : Screen() {
                 )
                 release?.let { r ->
                     add(
-                        KodiListItem(availableFmt.replace("%s", r.commit)) {
-                            ElenaUpdater.download(context, r)
-                            context.toast(started)
+                        KodiListItem(
+                            title = downloadPct?.let { "$downloadingLabel $it%" }
+                                ?: availableFmt.replace("%s", r.commit),
+                        ) {
+                            if (downloadPct == null) {
+                                downloadPct = 0
+                                scope.launch {
+                                    try {
+                                        val ok = ElenaUpdater.downloadAndInstall(context, r) { downloadPct = it }
+                                        status = if (ok) installingLabel else permissionLabel
+                                    } catch (e: Exception) {
+                                        status = failedFmt.replace("%s", e.message.orEmpty())
+                                    } finally {
+                                        downloadPct = null
+                                    }
+                                }
+                            }
                         },
                     )
                 }
