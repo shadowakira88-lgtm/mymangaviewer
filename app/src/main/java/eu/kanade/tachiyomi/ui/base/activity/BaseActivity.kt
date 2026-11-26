@@ -136,8 +136,33 @@ open class BaseActivity :
             }
             return true
         }
-        return onMappedKeyEvent(e)
+        val handled = onMappedKeyEvent(e)
+        // A (confirm) that nothing handled itself acts like D-pad center, so every ordinary clickable
+        // element in the app (buttons, chips, cover grids, settings rows) can be pressed with the gamepad.
+        if (!handled && confirmActsAsDpadCenter && e.keyCode == KeyEvent.KEYCODE_BUTTON_A &&
+            e.action == KeyEvent.ACTION_UP
+        ) {
+            val now = android.os.SystemClock.uptimeMillis()
+            fun center(action: Int) = KeyEvent(
+                now,
+                now,
+                action,
+                KeyEvent.KEYCODE_DPAD_CENTER,
+                0,
+                e.metaState,
+                e.deviceId,
+                0,
+                e.flags,
+                e.source,
+            )
+            super.dispatchKeyEvent(center(KeyEvent.ACTION_DOWN))
+            return super.dispatchKeyEvent(center(KeyEvent.ACTION_UP))
+        }
+        return handled
     }
+
+    /** Screens that handle the confirm button on their own (the reader) turn the fallback off. */
+    protected open val confirmActsAsDpadCenter: Boolean = true
 
     /** Receives key events after the controller mapping has been applied. */
     protected open fun onMappedKeyEvent(event: KeyEvent): Boolean = super.dispatchKeyEvent(event)

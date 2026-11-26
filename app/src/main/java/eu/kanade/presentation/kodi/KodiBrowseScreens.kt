@@ -165,18 +165,6 @@ object KodiSourcesScreen : Screen() {
                     subtitle = source.lang,
                 ) { navigator.push(BrowseSourceScreen(source.id, null)) }
             }
-        KodiListPage(
-            title = stringResource(MR.strings.label_sources),
-            items = items.ifEmpty { listOf(emptyItem()) },
-            headerActions = listOf(
-                KodiListItem(stringResource(KMR.strings.kodi_sources_search)) { searching = true },
-                KodiListItem(
-                    stringResource(
-                        if (nsfwOnly) KMR.strings.kodi_sources_nsfw_on else KMR.strings.kodi_sources_nsfw_off,
-                    ),
-                ) { nsfwOnly = !nsfwOnly },
-            ),
-        )
         if (searching) {
             KodiKeyboardDialog(
                 title = stringResource(KMR.strings.kodi_sources_search),
@@ -191,6 +179,19 @@ object KodiSourcesScreen : Screen() {
                         navigator.push(GlobalSearchScreen(query))
                     }
                 },
+            )
+        } else {
+            KodiListPage(
+                title = stringResource(MR.strings.label_sources),
+                items = items.ifEmpty { listOf(emptyItem()) },
+                headerActions = listOf(
+                    KodiListItem(stringResource(KMR.strings.kodi_sources_search)) { searching = true },
+                    KodiListItem(
+                        stringResource(
+                            if (nsfwOnly) KMR.strings.kodi_sources_nsfw_on else KMR.strings.kodi_sources_nsfw_off,
+                        ),
+                    ) { nsfwOnly = !nsfwOnly },
+                ),
             )
         }
     }

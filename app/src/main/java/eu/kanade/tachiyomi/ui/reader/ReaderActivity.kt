@@ -604,6 +604,10 @@ class ReaderActivity : BaseActivity() {
     /**
      * Dispatches a key event. If the viewer doesn't handle it, call the default implementation.
      */
+    // KMK -->
+    override val confirmActsAsDpadCenter: Boolean = false
+    // KMK <--
+
     override fun onMappedKeyEvent(event: KeyEvent): Boolean {
         // KMK -->
         if (event.keyCode == KeyEvent.KEYCODE_BUTTON_X) {

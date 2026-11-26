@@ -1,18 +1,21 @@
 package eu.kanade.presentation.theme
 
 import android.content.Context
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import com.materialkolor.DynamicMaterialExpressiveTheme
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.domain.ui.model.AppTheme
+import eu.kanade.presentation.kodi.KodiFocusIndication
 import eu.kanade.presentation.theme.colorscheme.BaseColorScheme
 import eu.kanade.presentation.theme.colorscheme.CatppuccinColorScheme
 import eu.kanade.presentation.theme.colorscheme.CloudflareColorScheme
@@ -48,7 +51,9 @@ fun TachiyomiTheme(
     BaseTachiyomiTheme(
         appTheme = appTheme ?: uiPreferences.appTheme().get(),
         isAmoled = amoled ?: uiPreferences.themeDarkAmoled().get(),
-        content = content,
+        // KMK -->
+        content = { KodiFocusProvider(content) },
+        // KMK <--
     )
 }
 
@@ -73,9 +78,18 @@ fun TachiyomiTheme(
             style = uiPreferences.themeCoverBasedStyle().get(),
             typography = typography,
             animate = true,
-            content = content,
+            // KMK -->
+            content = { KodiFocusProvider(content) },
+            // KMK <--
         )
     }
+}
+// KMK <--
+
+// KMK -->
+@Composable
+private fun KodiFocusProvider(content: @Composable () -> Unit) {
+    CompositionLocalProvider(LocalIndication provides KodiFocusIndication, content = content)
 }
 // KMK <--
 
