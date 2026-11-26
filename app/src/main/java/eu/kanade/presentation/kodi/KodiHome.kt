@@ -52,7 +52,7 @@ private val QuartzBlue = Color(0xFF6CA9D9)
 private val QuartzBorder = Color(0xFFE0E0E0)
 private val QuartzDim = Color(0xFFB8B8B8)
 
-data class KodiMenuAction(val title: String, val onClick: () -> Unit)
+data class KodiMenuAction(val title: String, val onMenu: (() -> Unit)? = null, val onClick: () -> Unit)
 
 data class KodiMenuEntry(
     val title: String,
@@ -298,6 +298,9 @@ private fun KodiSubItem(
             .onKeyEvent { event ->
                 if (event.type == KeyEventType.KeyUp && event.key == Key.ButtonA) {
                     action.onClick()
+                    true
+                } else if (event.type == KeyEventType.KeyUp && event.key == Key.ButtonY && action.onMenu != null) {
+                    action.onMenu.invoke()
                     true
                 } else {
                     false

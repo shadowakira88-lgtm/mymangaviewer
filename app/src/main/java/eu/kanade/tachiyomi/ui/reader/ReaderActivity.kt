@@ -86,6 +86,7 @@ import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.databinding.ReaderActivityBinding
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.online.HttpSource
+import eu.kanade.tachiyomi.ui.base.ControllerMapping
 import eu.kanade.tachiyomi.ui.base.activity.BaseActivity
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel.SetAsCoverResult.AddToLibraryFirst
@@ -606,6 +607,12 @@ class ReaderActivity : BaseActivity() {
      */
     // KMK -->
     override val confirmActsAsDpadCenter: Boolean = false
+
+    override fun controllerContext(): ControllerMapping.Context = when {
+        kodiReaderUi && viewModel.state.value.menuVisible -> ControllerMapping.Context.READING_MENU
+        magnifierActive -> ControllerMapping.Context.MAGNIFIER
+        else -> ControllerMapping.Context.READING
+    }
     // KMK <--
 
     override fun onMappedKeyEvent(event: KeyEvent): Boolean {
@@ -614,13 +621,31 @@ class ReaderActivity : BaseActivity() {
             if (event.action == KeyEvent.ACTION_UP) toggleMagnifier()
             return true
         }
+        // Option menu button (reading mapping) opens / closes the Kodi menu even without touching the screen.
+        if (event.keyCode == KeyEvent.KEYCODE_MENU) {
+            if (event.action == KeyEvent.ACTION_UP) toggleMenu()
+            return true
+        }
         if (magnifierActive) {
             val step = (48 * resources.displayMetrics.density).toInt() * (1 + event.repeatCount.coerceAtMost(4))
+            val up = event.action == KeyEvent.ACTION_UP
             val moved = when (event.keyCode) {
                 KeyEvent.KEYCODE_DPAD_LEFT -> moveMagnifier(-step, 0)
                 KeyEvent.KEYCODE_DPAD_RIGHT -> moveMagnifier(step, 0)
                 KeyEvent.KEYCODE_DPAD_UP -> moveMagnifier(0, -step)
                 KeyEvent.KEYCODE_DPAD_DOWN -> moveMagnifier(0, step)
+                KeyEvent.KEYCODE_ZOOM_IN -> {
+                    if (!up) magnifierLens?.resize(1.1f)
+                    Unit
+                }
+                KeyEvent.KEYCODE_ZOOM_OUT -> {
+                    if (!up) magnifierLens?.resize(1 / 1.1f)
+                    Unit
+                }
+                KeyEvent.KEYCODE_BUTTON_C -> {
+                    if (up) magnifierLens?.toggleShape()
+                    Unit
+                }
                 else -> null
             }
             if (moved != null) return true
@@ -747,7 +772,15 @@ class ReaderActivity : BaseActivity() {
         if (kodiReader) {
             androidx.activity.compose.BackHandler(enabled = state.menuVisible) { setMenuVisibility(false) }
             val currentMode = ReadingMode.fromPreference(readingMode)
+            val brightnessOn by readerPreferences.customBrightness().collectAsState()
+            val brightnessValue by readerPreferences.customBrightnessValue().collectAsState()
+            val shownBrightness = if (brightnessOn) brightnessValue else 0
             eu.kanade.presentation.reader.KodiReaderOsd(
+                brightness = shownBrightness,
+                onBrightnessChange = { delta ->
+                    readerPreferences.customBrightness().set(true)
+                    readerPreferences.customBrightnessValue().set((shownBrightness + delta).coerceIn(-75, 100))
+                },
                 visible = state.menuVisible,
                 mangaTitle = state.manga?.title,
                 chapterTitle = state.currentChapter?.chapter?.name,

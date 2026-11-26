@@ -182,6 +182,59 @@ data class BrowseSourceScreen(
             (screenModel.source.isEhBasedSource() && isHentaiEnabled)
         // KMK <--
 
+        // KMK -->
+        val kodiPref = remember { Injekt.get<eu.kanade.domain.ui.UiPreferences>().kodiLayout() }
+        val kodiLayout = kodiPref.changes().collectAsState(kodiPref.get()).value
+        val onKodiMenu: (tachiyomi.domain.manga.model.Manga) -> Unit = { manga ->
+            scope.launchIO {
+                val duplicates = screenModel.getDuplicateLibraryManga(manga)
+                when {
+                    manga.favorite -> screenModel.setDialog(BrowseSourceScreenModel.Dialog.RemoveManga(manga))
+                    duplicates.isNotEmpty() -> screenModel.setDialog(
+                        BrowseSourceScreenModel.Dialog.AddDuplicateManga(manga, duplicates),
+                    )
+                    else -> screenModel.addFavorite(manga)
+                }
+            }
+        }
+        if (kodiLayout) {
+            val refresh = mangaList.loadState.refresh
+            eu.kanade.presentation.kodi.KodiBrowseSourceList(
+                sourceName = screenModel.source.name,
+                popularSelected = state.listing == Listing.Popular,
+                latestSelected = state.listing == Listing.Latest,
+                supportsLatest = screenModel.source.supportsLatest,
+                filterable = state.filterable,
+                mangaItems = mangaList.itemSnapshotList.items.map { it.value.first },
+                loading = refresh is androidx.paging.LoadState.Loading,
+                loadingMore = mangaList.loadState.append is androidx.paging.LoadState.Loading,
+                error = (refresh as? androidx.paging.LoadState.Error)?.error?.message
+                    ?: (mangaList.loadState.append as? androidx.paging.LoadState.Error)?.error?.message,
+                onTouch = { index -> if (index in 0 until mangaList.itemCount) mangaList[index] },
+                onRetry = { mangaList.retry() },
+                onPopular = {
+                    screenModel.resetFilters()
+                    screenModel.setListing(Listing.Popular)
+                },
+                onLatest = {
+                    screenModel.resetFilters()
+                    screenModel.setListing(Listing.Latest)
+                },
+                onSearch = { screenModel.search(it) },
+                onFilter = screenModel::openFilterSheet,
+                onOpen = { manga ->
+                    navigator.push(
+                        MangaScreen(
+                            mangaId = manga.id,
+                            fromSource = smartSearchConfig == null,
+                            smartSearchConfig = smartSearchConfig,
+                        ),
+                    )
+                },
+                onMenu = onKodiMenu,
+            )
+        } else
+        // KMK <--
         Scaffold(
             topBar = {
                 Column(

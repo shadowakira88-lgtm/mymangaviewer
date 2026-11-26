@@ -117,7 +117,12 @@ data class KodiListItem(
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun KodiListPage(title: String, items: List<KodiListItem>, headerActions: List<KodiListItem> = emptyList()) {
+fun KodiListPage(
+    title: String,
+    items: List<KodiListItem>,
+    headerActions: List<KodiListItem> = emptyList(),
+    onFocusItem: (Int) -> Unit = {},
+) {
     var focused by remember { mutableStateOf(0) }
     val first = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
@@ -159,7 +164,10 @@ fun KodiListPage(title: String, items: List<KodiListItem>, headerActions: List<K
                         .then(if (index == 0) Modifier.focusRequester(first) else Modifier)
                         .onFocusChanged {
                             hasFocus = it.isFocused
-                            if (it.isFocused) focused = index
+                            if (it.isFocused) {
+                                focused = index
+                                onFocusItem(index)
+                            }
                         }
                         .border(
                             BorderStroke(1.5.dp, if (hasFocus) KodiLine else Color.Transparent),
@@ -595,9 +603,40 @@ object UpdateScreen : Screen() {
         }
     }
 }
+/** Controller mapping: three groups (system, reading, magnifier). */
 object ControllerMappingScreen : Screen() {
     @Suppress("unused")
     private fun readResolve(): Any = ControllerMappingScreen
+
+    @Composable
+    override fun Content() {
+        val navigator = LocalNavigator.currentOrThrow
+        var version by remember { mutableStateOf(0) }
+        KodiListPage(
+            title = stringResource(KMR.strings.controller_mapping),
+            items = listOf(
+                KodiListItem(
+                    stringResource(KMR.strings.controller_group_system),
+                    stringResource(KMR.strings.controller_group_system_summary),
+                ) { navigator.push(ControllerMappingGroupScreen(ControllerMapping.Context.SYSTEM)) },
+                KodiListItem(
+                    stringResource(KMR.strings.controller_group_reading),
+                    stringResource(KMR.strings.controller_group_reading_summary),
+                ) { navigator.push(ControllerMappingGroupScreen(ControllerMapping.Context.READING)) },
+                KodiListItem(
+                    stringResource(KMR.strings.controller_group_magnifier),
+                    stringResource(KMR.strings.controller_group_magnifier_summary),
+                ) { navigator.push(ControllerMappingGroupScreen(ControllerMapping.Context.MAGNIFIER)) },
+                KodiListItem(stringResource(KMR.strings.controller_reset)) {
+                    ControllerMapping.reset()
+                    version++
+                },
+            ).also { version },
+        )
+    }
+}
+
+class ControllerMappingGroupScreen(private val group: ControllerMapping.Context) : Screen() {
 
     @Composable
     override fun Content() {
@@ -606,23 +645,39 @@ object ControllerMappingScreen : Screen() {
         var version by remember { mutableStateOf(0) }
 
         fun title(a: ControllerMapping.Action): StringResource = when (a) {
-            ControllerMapping.Action.UP -> KMR.strings.controller_dpad_up
-            ControllerMapping.Action.DOWN -> KMR.strings.controller_dpad_down
-            ControllerMapping.Action.LEFT -> KMR.strings.controller_dpad_left
-            ControllerMapping.Action.RIGHT -> KMR.strings.controller_dpad_right
+            ControllerMapping.Action.UP, ControllerMapping.Action.MAG_UP -> KMR.strings.controller_dpad_up
+            ControllerMapping.Action.DOWN, ControllerMapping.Action.MAG_DOWN -> KMR.strings.controller_dpad_down
+            ControllerMapping.Action.LEFT, ControllerMapping.Action.MAG_LEFT -> KMR.strings.controller_dpad_left
+            ControllerMapping.Action.RIGHT, ControllerMapping.Action.MAG_RIGHT -> KMR.strings.controller_dpad_right
             ControllerMapping.Action.CONFIRM -> KMR.strings.controller_confirm
             ControllerMapping.Action.BACK -> KMR.strings.controller_back
+            ControllerMapping.Action.MENU -> KMR.strings.controller_menu
             ControllerMapping.Action.NEXT_PAGE -> KMR.strings.controller_next_page
             ControllerMapping.Action.PREV_PAGE -> KMR.strings.controller_prev_page
+            ControllerMapping.Action.SCROLL_DOWN -> KMR.strings.controller_scroll_down
+            ControllerMapping.Action.SCROLL_UP -> KMR.strings.controller_scroll_up
+            ControllerMapping.Action.OPTION_MENU -> KMR.strings.controller_option_menu
             ControllerMapping.Action.MAGNIFIER -> KMR.strings.controller_magnifier
+            ControllerMapping.Action.NEXT_CHAPTER -> KMR.strings.controller_next_chapter
+            ControllerMapping.Action.PREV_CHAPTER -> KMR.strings.controller_prev_chapter
+            ControllerMapping.Action.MAG_ENLARGE -> KMR.strings.controller_mag_enlarge
+            ControllerMapping.Action.MAG_SHRINK -> KMR.strings.controller_mag_shrink
+            ControllerMapping.Action.MAG_SHAPE -> KMR.strings.controller_mag_shape
         }
 
-        val labelTitles = ControllerMapping.Action.entries.associateWith { stringResource(title(it)) }
+        val actions = ControllerMapping.Action.entries.filter { it.context == group }
+        val labelTitles = actions.associateWith { stringResource(title(it)) }
 
         KodiListPage(
-            title = stringResource(KMR.strings.controller_mapping),
+            title = stringResource(
+                when (group) {
+                    ControllerMapping.Context.SYSTEM -> KMR.strings.controller_group_system
+                    ControllerMapping.Context.READING -> KMR.strings.controller_group_reading
+                    else -> KMR.strings.controller_group_magnifier
+                },
+            ),
             items = buildList {
-                ControllerMapping.Action.entries.forEach { action ->
+                actions.forEach { action ->
                     add(
                         KodiListItem(
                             labelTitles.getValue(action),
@@ -633,7 +688,7 @@ object ControllerMappingScreen : Screen() {
                 }
                 add(
                     KodiListItem(stringResource(KMR.strings.controller_reset)) {
-                        ControllerMapping.reset()
+                        actions.forEach { ControllerMapping.setKey(it, it.default) }
                         version++
                     },
                 )

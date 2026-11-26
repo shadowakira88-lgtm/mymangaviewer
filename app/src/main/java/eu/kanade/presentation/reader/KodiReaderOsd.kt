@@ -28,6 +28,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.BookmarkBorder
+import androidx.compose.material.icons.outlined.BrightnessMedium
 import androidx.compose.material.icons.outlined.ChromeReaderMode
 import androidx.compose.material.icons.outlined.Crop
 import androidx.compose.material.icons.outlined.FormatListNumbered
@@ -105,6 +106,11 @@ fun KodiReaderOsd(
     onToggleCrop: () -> Unit,
     onSettings: () -> Unit,
     onBack: () -> Unit,
+    // KMK -->
+    /** Custom brightness, -75..100 (0 = system brightness). */
+    brightness: Int = 0,
+    onBrightnessChange: (delta: Int) -> Unit = {},
+    // KMK <--
 ) {
     var calibrating by remember { mutableStateOf(false) }
     val firstFocus = remember { FocusRequester() }
@@ -167,6 +173,31 @@ fun KodiReaderOsd(
                     OsdSeekBar(currentPage, totalPages, onPageIndexChange)
                     Spacer(Modifier.height(6.dp))
                 }
+                // KMK -->
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    OsdButton(
+                        icon = Icons.Outlined.BrightnessMedium,
+                        label = "−",
+                        onClick = { onBrightnessChange(-10) },
+                    )
+                    val auto = stringResource(KMR.strings.reader_osd_brightness_auto)
+                    Text(
+                        text = stringResource(KMR.strings.reader_osd_brightness) + ": " +
+                            (if (brightness == 0) auto else "$brightness"),
+                        color = Color.White,
+                        fontSize = 13.sp,
+                    )
+                    OsdButton(
+                        icon = Icons.Outlined.BrightnessMedium,
+                        label = "+",
+                        onClick = { onBrightnessChange(10) },
+                    )
+                }
+                Spacer(Modifier.height(6.dp))
+                // KMK <--
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically,

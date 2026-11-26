@@ -153,11 +153,14 @@ object KodiSourcesScreen : Screen() {
         val navigator = LocalNavigator.currentOrThrow
         var nsfwOnly by remember { mutableStateOf(false) }
         var searching by remember { mutableStateOf(false) }
+        var filtering by remember { mutableStateOf(false) }
+        var nameFilter by remember { mutableStateOf("") }
         val sources by produceState(initialValue = emptyList<tachiyomi.domain.source.model.Source>()) {
             Injekt.get<GetEnabledSources>().subscribe().collectLatest { value = it }
         }
         val items = sources
             .filter { !nsfwOnly || it.installedExtension?.isNsfw != false }
+            .filter { nameFilter.isBlank() || it.name.contains(nameFilter, ignoreCase = true) }
             .sortedWith(compareBy({ it.lang }, { it.name.lowercase() }))
             .map { source ->
                 KodiListItem(
@@ -165,7 +168,17 @@ object KodiSourcesScreen : Screen() {
                     subtitle = source.lang,
                 ) { navigator.push(BrowseSourceScreen(source.id, null)) }
             }
-        if (searching) {
+        if (filtering) {
+            KodiKeyboardDialog(
+                title = stringResource(KMR.strings.kodi_sources_filter),
+                initial = nameFilter,
+                onDismiss = { filtering = false },
+                onDone = {
+                    nameFilter = it
+                    filtering = false
+                },
+            )
+        } else if (searching) {
             KodiKeyboardDialog(
                 title = stringResource(KMR.strings.kodi_sources_search),
                 onDismiss = { searching = false },
@@ -187,6 +200,13 @@ object KodiSourcesScreen : Screen() {
                 headerActions = listOf(
                     KodiListItem(stringResource(KMR.strings.kodi_sources_search)) { searching = true },
                     KodiListItem(
+                        if (nameFilter.isBlank()) {
+                            stringResource(KMR.strings.kodi_sources_filter)
+                        } else {
+                            stringResource(KMR.strings.kodi_sources_filter_on, nameFilter)
+                        },
+                    ) { filtering = true },
+                    KodiListItem(
                         stringResource(
                             if (nsfwOnly) KMR.strings.kodi_sources_nsfw_on else KMR.strings.kodi_sources_nsfw_off,
                         ),
@@ -195,5 +215,88 @@ object KodiSourcesScreen : Screen() {
             )
         }
     }
+}
+
+/**
+ * Kodi-style browse list of one source: a few buttons (popular, latest, manga search, filter) on the left
+ * and the manga as a list with small covers on the right, so a gamepad can pick everything.
+ * Menu button (Y) on a manga adds it to / removes it from the library.
+ */
+@Composable
+fun KodiBrowseSourceList(
+    sourceName: String,
+    popularSelected: Boolean,
+    latestSelected: Boolean,
+    supportsLatest: Boolean,
+    filterable: Boolean,
+    mangaItems: List<tachiyomi.domain.manga.model.Manga>,
+    loading: Boolean,
+    loadingMore: Boolean,
+    error: String?,
+    onTouch: (Int) -> Unit,
+    onRetry: () -> Unit,
+    onPopular: () -> Unit,
+    onLatest: () -> Unit,
+    onSearch: (String) -> Unit,
+    onFilter: () -> Unit,
+    onOpen: (tachiyomi.domain.manga.model.Manga) -> Unit,
+    onMenu: (tachiyomi.domain.manga.model.Manga) -> Unit,
+) {
+    var typing by remember { mutableStateOf(false) }
+    if (typing) {
+        KodiKeyboardDialog(
+            title = stringResource(KMR.strings.kodi_sources_search),
+            onDismiss = { typing = false },
+            onDone = {
+                typing = false
+                if (it.isNotBlank()) onSearch(it)
+            },
+        )
+        return
+    }
+    val addHint = stringResource(KMR.strings.kodi_browse_hint_add)
+    val removeHint = stringResource(KMR.strings.kodi_browse_hint_remove)
+    val items = buildList {
+        mangaItems.forEach { m ->
+            add(
+                KodiListItem(
+                    title = m.title,
+                    subtitle = if (m.favorite) removeHint else addHint,
+                    cover = tachiyomi.domain.manga.model.MangaCover(
+                        mangaId = m.id,
+                        sourceId = m.source,
+                        isMangaFavorite = m.favorite,
+                        ogUrl = m.thumbnailUrl,
+                        lastModified = m.coverLastModified,
+                    ),
+                    onLongClick = { onMenu(m) },
+                ) { onOpen(m) },
+            )
+        }
+        if (error != null) {
+            add(KodiListItem(stringResource(KMR.strings.kodi_browse_retry), error) { onRetry() })
+        } else if (loading || loadingMore) {
+            add(KodiListItem(stringResource(KMR.strings.kodi_browse_loading)) {})
+        } else if (mangaItems.isEmpty()) {
+            add(KodiListItem(stringResource(KMR.strings.kodi_empty_list)) {})
+        }
+    }
+    val popularLabel = stringResource(MR.strings.popular)
+    val latestLabel = stringResource(MR.strings.latest)
+    KodiListPage(
+        title = sourceName,
+        items = items,
+        onFocusItem = onTouch,
+        headerActions = buildList {
+            add(KodiListItem(if (popularSelected) "✓ $popularLabel" else popularLabel) { onPopular() })
+            if (supportsLatest) {
+                add(KodiListItem(if (latestSelected) "✓ $latestLabel" else latestLabel) { onLatest() })
+            }
+            add(KodiListItem(stringResource(KMR.strings.kodi_sources_search)) { typing = true })
+            if (filterable) {
+                add(KodiListItem(stringResource(MR.strings.action_filter)) { onFilter() })
+            }
+        },
+    )
 }
 // KMK <--

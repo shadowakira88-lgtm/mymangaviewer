@@ -136,6 +136,9 @@ data object LibraryTab : Tab {
         val kodiLayout by remember { Injekt.get<UiPreferences>().kodiLayout() }.collectAsState()
         var actionsRevealed by rememberSaveable { mutableStateOf(false) }
         androidx.activity.compose.BackHandler(enabled = kodiLayout && actionsRevealed) { actionsRevealed = false }
+        // Menu button (Y) on an entry in Kodi mode: move to group / remove / create group / select several.
+        var kodiMenuManga by remember { mutableStateOf<LibraryManga?>(null) }
+        var kodiMenuCategory by remember { mutableStateOf<Category?>(null) }
         // KMK <--
 
         val onClickRefresh: (Category?) -> Boolean = { category ->
@@ -163,6 +166,27 @@ data object LibraryTab : Tab {
             started
         }
 
+        // KMK -->
+        eu.kanade.presentation.kodi.KodiMenuHost(
+            active = kodiMenuManga != null,
+            overlay = {
+                kodiMenuManga?.let { entry ->
+                    eu.kanade.presentation.library.components.KodiLibraryMenu(
+                        manga = entry.manga,
+                        categories = state.libraryData.categories,
+                        onSetCategories = { add, remove ->
+                            screenModel.setMangaCategories(listOf(entry.manga), add, remove)
+                        },
+                        onRemove = { screenModel.removeMangas(listOf(entry.manga), true, false) },
+                        onSelectMultiple = {
+                            kodiMenuCategory?.let { screenModel.toggleRangeSelection(it, entry) }
+                        },
+                        onDismiss = { kodiMenuManga = null },
+                    )
+                }
+            },
+        ) {
+        // KMK <--
         Scaffold(
             // KMK -->
             modifier = Modifier
@@ -382,8 +406,15 @@ data object LibraryTab : Tab {
                         }.takeIf { state.showMangaContinueButton },
                         onToggleSelection = screenModel::toggleSelection,
                         onToggleRangeSelection = { category, manga ->
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            screenModel.toggleRangeSelection(category, manga)
+                            // KMK -->
+                            if (kodiLayout && state.selection.isEmpty()) {
+                                kodiMenuCategory = category
+                                kodiMenuManga = manga
+                            } else {
+                                // KMK <--
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                screenModel.toggleRangeSelection(category, manga)
+                            }
                         },
                         onRefresh = { onClickRefresh(state.activeCategory) },
                         onGlobalSearchClicked = {
@@ -397,6 +428,9 @@ data object LibraryTab : Tab {
                 }
             }
         }
+        // KMK -->
+        }
+        // KMK <--
 
         val onDismissRequest = screenModel::closeDialog
         when (val dialog = state.dialog) {

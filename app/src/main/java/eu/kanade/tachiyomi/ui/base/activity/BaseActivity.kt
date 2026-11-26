@@ -120,7 +120,7 @@ open class BaseActivity :
     final override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (ControllerMapping.capturing) return super.dispatchKeyEvent(event)
         // Apply the user's controller mapping first.
-        val e = ControllerMapping.translate(event) ?: return true
+        val e = ControllerMapping.translate(event, controllerContext()) ?: return true
         // Controller Start button toggles VR mode from anywhere in the app.
         if (e.keyCode == KeyEvent.KEYCODE_BUTTON_START) {
             if (e.action == KeyEvent.ACTION_UP) {
@@ -160,6 +160,9 @@ open class BaseActivity :
         }
         return handled
     }
+
+    /** Which button assignments apply right now (the reader switches between reading and magnifier). */
+    protected open fun controllerContext(): ControllerMapping.Context = ControllerMapping.Context.SYSTEM
 
     /** Screens that handle the confirm button on their own (the reader) turn the fallback off. */
     protected open val confirmActsAsDpadCenter: Boolean = true

@@ -17,7 +17,8 @@ import android.view.View
 class MagnifierLensView(context: Context, private val source: View) : View(context) {
 
     private val density = resources.displayMetrics.density
-    private val radius = 110f * density
+    private var radius = 110f * density
+    private var square = false
     private val zoom = 2.2f
 
     var lensX = 0f
@@ -64,6 +65,20 @@ class MagnifierLensView(context: Context, private val source: View) : View(conte
         visibility = GONE
     }
 
+    /** Makes the lens bigger (factor > 1) or smaller (factor < 1). */
+    fun resize(factor: Float) {
+        radius = (radius * factor).coerceIn(50f * density, 220f * density)
+        bitmap = null
+        bitmapCanvas = null
+        invalidate()
+    }
+
+    /** Switches between a round and a square lens. */
+    fun toggleShape() {
+        square = !square
+        invalidate()
+    }
+
     fun moveBy(dx: Float, dy: Float) {
         lensX = (lensX + dx).coerceIn(0f, width.toFloat())
         lensY = (lensY + dy).coerceIn(0f, height.toFloat())
@@ -99,11 +114,19 @@ class MagnifierLensView(context: Context, private val source: View) : View(conte
 
         canvas.save()
         clip.reset()
-        clip.addCircle(lensX, lensY, radius, Path.Direction.CW)
+        if (square) {
+            clip.addRect(lensX - radius, lensY - radius, lensX + radius, lensY + radius, Path.Direction.CW)
+        } else {
+            clip.addCircle(lensX, lensY, radius, Path.Direction.CW)
+        }
         canvas.clipPath(clip)
         if (drawn) canvas.drawBitmap(bmp, lensX - radius, lensY - radius, null)
         canvas.restore()
-        canvas.drawCircle(lensX, lensY, radius, ring)
+        if (square) {
+            canvas.drawRect(lensX - radius, lensY - radius, lensX + radius, lensY + radius, ring)
+        } else {
+            canvas.drawCircle(lensX, lensY, radius, ring)
+        }
     }
 }
 // KMK <--

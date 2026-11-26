@@ -293,14 +293,32 @@ object HomeScreen : Screen() {
             }
         }
 
+        // Menu button (Y) on a library group: rename / delete / create group.
+        var groupMenu by remember { mutableStateOf<tachiyomi.domain.category.model.Category?>(null) }
+        var groupMenuOpen by remember { mutableStateOf(false) }
+
         val menu = listOf(
             KodiMenuEntry(
                 title = LibraryTab.options.title,
                 actions = if (groups.isEmpty()) {
-                    listOf(KodiMenuAction(LibraryTab.options.title) { onOpenTab(LibraryTab) })
+                    listOf(
+                        KodiMenuAction(
+                            LibraryTab.options.title,
+                            onMenu = {
+                                groupMenu = null
+                                groupMenuOpen = true
+                            },
+                        ) { onOpenTab(LibraryTab) },
+                    )
                 } else {
                     groups.map { group ->
-                        KodiMenuAction(group.name) {
+                        KodiMenuAction(
+                            group.name,
+                            onMenu = {
+                                groupMenu = group
+                                groupMenuOpen = true
+                            },
+                        ) {
                             KodiNav.pendingCategoryId = group.id
                             onOpenTab(LibraryTab)
                         }
@@ -353,13 +371,20 @@ object HomeScreen : Screen() {
             ),
         )
 
-        KodiHome(
-            menu = menu,
-            posters = posters,
-            onClickPoster = { navigator.push(MangaScreen(it)) },
-            updateLabel = stringResource(MR.strings.action_update_library),
-            onUpdateAll = { LibraryUpdateJob.startNow(context) },
-        )
+        eu.kanade.presentation.kodi.KodiMenuHost(
+            active = groupMenuOpen,
+            overlay = {
+                eu.kanade.presentation.kodi.KodiGroupMenu(group = groupMenu, onDismiss = { groupMenuOpen = false })
+            },
+        ) {
+            KodiHome(
+                menu = menu,
+                posters = posters,
+                onClickPoster = { navigator.push(MangaScreen(it)) },
+                updateLabel = stringResource(MR.strings.action_update_library),
+                onUpdateAll = { LibraryUpdateJob.startNow(context) },
+            )
+        }
     }
     // KMK <--
 
