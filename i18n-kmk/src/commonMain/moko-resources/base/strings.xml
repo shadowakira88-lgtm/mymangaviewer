@@ -333,4 +333,15 @@
     <string name="kodi_menu_browse_missing">Missing sources</string>
     <string name="kodi_missing_summary">%1$d manga in library - press to open Extensions</string>
     <string name="kodi_missing_none">All sources are installed</string>
+    <string name="kodi_extension_waiting">Waiting…</string>
+    <string name="kodi_extension_downloading">Downloading %1$d%%</string>
+    <string name="kodi_extension_installing">Installing…</string>
+    <string name="kodi_extension_failed">Failed - press to retry</string>
+    <string name="kodi_extension_selected">Selected - press to unselect</string>
+    <string name="kodi_extension_install_selected">Install selected (%1$d)</string>
+    <string name="kodi_extension_update_all">Update all</string>
+    <string name="kodi_extension_select_all">Select all</string>
+    <string name="kodi_extension_clear">Clear selection</string>
+    <string name="kodi_missing_needs">Needs: %1$s</string>
+    <string name="kodi_missing_not_found">Extension not found in your repos (%1$s)</string>
 </resources>

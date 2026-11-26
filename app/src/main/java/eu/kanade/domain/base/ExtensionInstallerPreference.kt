@@ -26,11 +26,10 @@ class ExtensionInstallerPreference(
         }
     }
 
-    override fun defaultValue() = if (context.hasMiuiPackageInstaller) {
-        ExtensionInstaller.LEGACY
-    } else {
-        ExtensionInstaller.PACKAGEINSTALLER
-    }
+    // KMK -->
+    // ElenaManga: install extensions inside the app (no system package installer prompt).
+    override fun defaultValue() = ExtensionInstaller.PRIVATE
+    // KMK <--
 
     private fun check(value: ExtensionInstaller): ExtensionInstaller {
         when (value) {

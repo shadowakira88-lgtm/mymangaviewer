@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.onCompletion
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import okhttp3.OkHttpClient
@@ -79,10 +80,26 @@ internal class ExtensionInstaller(
                             throw Exception("Failed to download extension")
                         }
                         // KMK -->
+                        val total = response.body.contentLength()
                         tmpFile.outputStream().use { output ->
                             response.body.byteStream().use { input ->
+                                val buffer = ByteArray(16 * 1024)
+                                var done = 0L
+                                var lastPercent = -1
+                                while (true) {
+                                    val read = input.read(buffer)
+                                    if (read < 0) break
+                                    output.write(buffer, 0, read)
+                                    done += read
+                                    if (total > 0) {
+                                        val percent = (done * 100 / total).toInt()
+                                        if (percent != lastPercent) {
+                                            lastPercent = percent
+                                            progress.update { it + (extension.pkgName to percent) }
+                                        }
+                                    }
+                                }
                                 // KMK <--
-                                input.copyTo(output)
                             }
                         }
                     }
@@ -98,6 +115,10 @@ internal class ExtensionInstaller(
                 }
                 // KMK -->
                 tmpFile.delete()
+                // KMK <--
+            } finally {
+                // KMK -->
+                progress.update { it - extension.pkgName }
                 // KMK <--
             }
         }
@@ -193,6 +214,9 @@ internal class ExtensionInstaller(
         const val EXTRA_DOWNLOAD_ID = "ExtensionInstaller.extra.DOWNLOAD_ID"
 
         // KMK -->
+        /** Download percentage (0-100) of running extension downloads, keyed by package name. */
+        val progress = MutableStateFlow(emptyMap<String, Int>())
+
         /** Convert packageName to download ID avoiding negative number */
         private fun String.toDownloadId(): Long = hashCode().toLong() and 0xFFFFFFFFL
         // KMK <--

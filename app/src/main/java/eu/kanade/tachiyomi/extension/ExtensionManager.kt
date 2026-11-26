@@ -68,6 +68,11 @@ class ExtensionManager(
      */
     private val installer by lazy { ExtensionInstaller(context) }
 
+    // KMK -->
+    /** Download percentage (0-100) of running extension downloads, keyed by package name. */
+    val installProgress: StateFlow<Map<String, Int>> get() = ExtensionInstaller.progress
+    // KMK <--
+
     private val iconMap = mutableMapOf<String, Drawable>()
 
     private val installedExtensionMapFlow = MutableStateFlow(emptyMap<String, Extension.Installed>())
