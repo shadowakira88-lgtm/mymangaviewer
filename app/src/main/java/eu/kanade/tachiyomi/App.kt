@@ -77,7 +77,11 @@ import exh.log.EnhancedFilePrinter
 import exh.log.XLogLogcatLogger
 import exh.log.xLogD
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import logcat.AndroidLogcatLogger
 import logcat.LogPriority
@@ -110,6 +114,7 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
     private val disableIncognitoReceiver = DisableIncognitoReceiver()
 
     @SuppressLint("LaunchActivityFromNotification")
+    @OptIn(kotlinx.coroutines.FlowPreview::class)
     override fun onCreate() {
         super<Application>.onCreate()
         patchInjekt()
@@ -234,8 +239,30 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
             SyncDataJob.startNow(this@App)
         }
 
+        // KMK -->
+        // Supabase: sync after every change (library, reading progress), wherever it happened.
+        Injekt.get<tachiyomi.domain.manga.interactor.GetLibraryManga>().subscribe()
+            .map { list ->
+                list.map { Triple(it.manga.id, it.readCount to it.bookmarkCount, it.categories) }.hashCode()
+            }
+            .distinctUntilChanged()
+            .drop(1)
+            .debounce(15_000)
+            .onEach { if (isSupabaseAutoSync()) SyncDataJob.startNow(this@App) }
+            .launchIn(scope)
+        // KMK <--
+
         initializeMigrator()
     }
+
+    // KMK -->
+    private fun isSupabaseAutoSync(): Boolean {
+        val syncPreferences: SyncPreferences = Injekt.get()
+        val supabase = eu.kanade.tachiyomi.data.sync.SyncManager.SyncService.SUPABASE.value
+        return syncPreferences.syncService().get() == supabase &&
+            eu.kanade.tachiyomi.data.sync.service.SupabaseAuth(syncPreferences).isSignedIn
+    }
+    // KMK <--
 
     private fun initializeMigrator() {
         val preferenceStore = Injekt.get<PreferenceStore>()
@@ -309,6 +336,10 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
         if (syncPreferences.isSyncEnabled() && syncTriggerOpt.syncOnAppResume) {
             SyncDataJob.startNow(this@App)
         }
+        // KMK -->
+        // Supabase: always pull the other phone's changes when the app opens or comes back.
+        if (isSupabaseAutoSync()) SyncDataJob.startNow(this@App)
+        // KMK <--
 
         // AM (DISCORD) -->
         DiscordRPCService.start(applicationContext)

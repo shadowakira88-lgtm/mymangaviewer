@@ -18,6 +18,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import tachiyomi.domain.manga.interactor.GetLibraryManga
+import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.kmk.KMR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -124,6 +126,48 @@ object KodiMigrateScreen : Screen() {
         KodiListPage(
             title = stringResource(MR.strings.label_migration),
             items = items.ifEmpty { listOf(KodiListItem(stringResource(KMR.strings.kodi_empty_list)) {}) },
+        )
+    }
+}
+/**
+ * Sources used by manga in the library that are not installed on this phone (typically after syncing from
+ * another phone). Tap = open the Extensions list to install them.
+ */
+object KodiMissingSourcesScreen : Screen() {
+    @Suppress("unused")
+    private fun readResolve(): Any = KodiMissingSourcesScreen
+
+    @Composable
+    override fun Content() {
+        val navigator = LocalNavigator.currentOrThrow
+        val sourceManager = remember { Injekt.get<SourceManager>() }
+        val library by produceState(initialValue = emptyList<tachiyomi.domain.manga.model.LibraryManga>()) {
+            Injekt.get<GetLibraryManga>().subscribe().collectLatest { value = it }
+        }
+        // Re-evaluate when sources are (un)installed.
+        val sourcesVersion by produceState(initialValue = 0) {
+            sourceManager.sources.collectLatest { value += 1 }
+        }
+        val fmt = stringResource(KMR.strings.kodi_missing_summary, 0)
+        val items = remember(library, sourcesVersion) {
+            library
+                .groupBy { it.manga.source }
+                .filterKeys { sourceManager.get(it) == null }
+                .map { (id, list) -> id to list.size }
+                .sortedByDescending { it.second }
+        }.map { (id, count) ->
+            val stub = sourceManager.getOrStub(id)
+            KodiListItem(
+                title = stub.name.ifBlank { "Source $id" },
+                subtitle = listOfNotNull(
+                    stub.lang.takeIf { it.isNotBlank() },
+                    fmt.replaceFirst("0", count.toString()),
+                ).joinToString(" · "),
+            ) { navigator.push(KodiExtensionsScreen) }
+        }
+        KodiListPage(
+            title = stringResource(KMR.strings.kodi_menu_browse_missing),
+            items = items.ifEmpty { listOf(KodiListItem(stringResource(KMR.strings.kodi_missing_none)) {}) },
         )
     }
 }

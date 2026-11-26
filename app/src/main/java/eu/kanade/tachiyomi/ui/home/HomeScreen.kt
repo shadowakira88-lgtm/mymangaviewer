@@ -49,6 +49,7 @@ import eu.kanade.presentation.kodi.KodiHome
 import eu.kanade.presentation.kodi.KodiMenuAction
 import eu.kanade.presentation.kodi.KodiMenuEntry
 import eu.kanade.presentation.kodi.KodiMigrateScreen
+import eu.kanade.presentation.kodi.KodiMissingSourcesScreen
 import eu.kanade.presentation.kodi.KodiNav
 import eu.kanade.presentation.kodi.KodiPoster
 import eu.kanade.presentation.kodi.KodiSourcesScreen
@@ -331,6 +332,9 @@ object HomeScreen : Screen() {
                         navigator.push(KodiExtensionsScreen)
                     },
                     KodiMenuAction(stringResource(MR.strings.label_migration)) { navigator.push(KodiMigrateScreen) },
+                    KodiMenuAction(stringResource(KMR.strings.kodi_menu_browse_missing)) {
+                        navigator.push(KodiMissingSourcesScreen)
+                    },
                 ),
             ),
             KodiMenuEntry(

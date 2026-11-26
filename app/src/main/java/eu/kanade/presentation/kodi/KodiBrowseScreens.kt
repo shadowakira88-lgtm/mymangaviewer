@@ -12,9 +12,11 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.domain.source.interactor.GetEnabledSources
 import eu.kanade.domain.source.model.installedExtension
+import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreen
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
+import eu.kanade.tachiyomi.ui.browse.source.globalsearch.SourceFilter
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import kotlinx.coroutines.flow.collectLatest
@@ -150,6 +152,7 @@ object KodiSourcesScreen : Screen() {
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         var nsfwOnly by remember { mutableStateOf(false) }
+        var searching by remember { mutableStateOf(false) }
         val sources by produceState(initialValue = emptyList<tachiyomi.domain.source.model.Source>()) {
             Injekt.get<GetEnabledSources>().subscribe().collectLatest { value = it }
         }
@@ -166,13 +169,28 @@ object KodiSourcesScreen : Screen() {
             title = stringResource(MR.strings.label_sources),
             items = items.ifEmpty { listOf(emptyItem()) },
             headerActions = listOf(
-                KodiListItem(stringResource(KMR.strings.kodi_sources_search)) {
-                    navigator.push(GlobalSearchScreen())
-                },
+                KodiListItem(stringResource(KMR.strings.kodi_sources_search)) { searching = true },
                 KodiListItem(
                     stringResource(if (nsfwOnly) KMR.strings.kodi_sources_nsfw_on else KMR.strings.kodi_sources_nsfw_off),
                 ) { nsfwOnly = !nsfwOnly },
             ),
+        )
+        if (searching) {
+            KodiKeyboardDialog(
+                title = stringResource(KMR.strings.kodi_sources_search),
+                onDismiss = { searching = false },
+                onDone = { query ->
+                    searching = false
+                    if (query.isNotBlank()) {
+                        // Kodi search: search every source but only show those with results.
+                        val prefs = Injekt.get<SourcePreferences>()
+                        prefs.globalSearchFilterState().set(true)
+                        prefs.globalSearchPinnedState().set(SourceFilter.All)
+                        navigator.push(GlobalSearchScreen(query))
+                    }
+                },
+            )
+        }
         )
     }
 }

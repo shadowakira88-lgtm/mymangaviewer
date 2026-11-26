@@ -6,8 +6,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import eu.kanade.domain.source.model.installedExtension
+import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.browse.components.GlobalSearchCardRow
 import eu.kanade.presentation.browse.components.GlobalSearchErrorResultItem
 import eu.kanade.presentation.browse.components.GlobalSearchLoadingResultItem
@@ -23,6 +25,9 @@ import eu.kanade.tachiyomi.util.system.LocaleHelper
 import kotlinx.collections.immutable.ImmutableMap
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.presentation.core.components.material.Scaffold
+import tachiyomi.presentation.core.util.collectAsState
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 import tachiyomi.domain.source.model.Source as DomainSource
 
 @Composable
@@ -44,6 +49,7 @@ fun GlobalSearchScreen(
 ) {
     // KMK -->
     val bulkFavoriteState by bulkFavoriteScreenModel.state.collectAsState()
+    val kodiLayout by remember { Injekt.get<UiPreferences>().kodiLayout() }.collectAsState()
     // KMK <--
 
     Scaffold(
@@ -77,7 +83,10 @@ fun GlobalSearchScreen(
                     navigateUp = navigateUp,
                     onChangeSearchQuery = onChangeSearchQuery,
                     onSearch = onSearch,
-                    hideSourceFilter = false,
+                    // KMK -->
+                    // Kodi layout: only the "Has results" chip, no Pinned/All source filter.
+                    hideSourceFilter = kodiLayout,
+                    // KMK <--
                     sourceFilter = state.sourceFilter,
                     onChangeSearchFilter = onChangeSearchFilter,
                     onlyShowHasResults = state.onlyShowHasResults,

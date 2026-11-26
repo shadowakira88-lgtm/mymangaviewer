@@ -330,4 +330,7 @@
     <string name="wallpaper_set_failed">Could not use that picture</string>
     <string name="reader_osd_close">Close</string>
     <string name="kodi_migrate_other_sources">Other sources</string>
+    <string name="kodi_menu_browse_missing">Missing sources</string>
+    <string name="kodi_missing_summary">%1$d manga in library - press to open Extensions</string>
+    <string name="kodi_missing_none">All sources are installed</string>
 </resources>
