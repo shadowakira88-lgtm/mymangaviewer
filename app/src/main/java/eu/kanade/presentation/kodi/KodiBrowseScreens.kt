@@ -171,7 +171,9 @@ object KodiSourcesScreen : Screen() {
             headerActions = listOf(
                 KodiListItem(stringResource(KMR.strings.kodi_sources_search)) { searching = true },
                 KodiListItem(
-                    stringResource(if (nsfwOnly) KMR.strings.kodi_sources_nsfw_on else KMR.strings.kodi_sources_nsfw_off),
+                    stringResource(
+                        if (nsfwOnly) KMR.strings.kodi_sources_nsfw_on else KMR.strings.kodi_sources_nsfw_off,
+                    ),
                 ) { nsfwOnly = !nsfwOnly },
             ),
         )
@@ -191,7 +193,6 @@ object KodiSourcesScreen : Screen() {
                 },
             )
         }
-        )
     }
 }
 // KMK <--

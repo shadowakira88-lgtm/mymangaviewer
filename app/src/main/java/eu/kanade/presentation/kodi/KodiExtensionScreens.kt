@@ -141,7 +141,7 @@ object KodiMissingSourcesScreen : Screen() {
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val sourceManager = remember { Injekt.get<SourceManager>() }
-        val library by produceState(initialValue = emptyList<tachiyomi.domain.manga.model.LibraryManga>()) {
+        val library by produceState(initialValue = emptyList<tachiyomi.domain.library.model.LibraryManga>()) {
             Injekt.get<GetLibraryManga>().subscribe().collectLatest { value = it }
         }
         // Re-evaluate when sources are (un)installed.
