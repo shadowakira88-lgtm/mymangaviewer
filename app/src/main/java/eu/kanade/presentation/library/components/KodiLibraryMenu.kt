@@ -66,7 +66,11 @@ fun KodiLibraryMenu(
                     KodiListItem(
                         title = (if (inGroup) "✓ " else "") + cat.name,
                     ) {
-                        if (inGroup) onSetCategories(emptyList(), listOf(cat.id)) else onSetCategories(listOf(cat.id), emptyList())
+                        if (inGroup) {
+                            onSetCategories(emptyList(), listOf(cat.id))
+                        } else {
+                            onSetCategories(listOf(cat.id), emptyList())
+                        }
                         // Give the database a moment, then re-read the membership.
                         scope.launch {
                             kotlinx.coroutines.delay(300)
