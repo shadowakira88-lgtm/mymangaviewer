@@ -634,40 +634,30 @@ class ReaderActivity : BaseActivity() {
     private val kodiReaderUi: Boolean
         get() = Injekt.get<eu.kanade.domain.ui.UiPreferences>().kodiLayout().get()
 
-    private var magnifier: android.widget.Magnifier? = null
-    private var magnifierActive = false
-    private var lensX = 0f
-    private var lensY = 0f
+    private var magnifierLens: MagnifierLensView? = null
+    private val magnifierActive: Boolean
+        get() = magnifierLens?.visibility == android.view.View.VISIBLE
 
     /** Shows a loupe over the page; D-pad moves it, pressing the magnifier button again removes it. */
     private fun toggleMagnifier() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            toast("Magnifier needs Android 10+")
-            return
+        val lens = magnifierLens ?: MagnifierLensView(this, binding.readerContainer).also {
+            // Below the Compose overlay, above the page. In VR it is drawn for both eyes at the same spot.
+            val root = binding.root
+            root.addView(
+                it,
+                root.indexOfChild(binding.composeOverlay),
+                android.widget.FrameLayout.LayoutParams(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                ),
+            )
+            magnifierLens = it
         }
-        if (magnifierActive) {
-            magnifier?.dismiss()
-            magnifier = null
-            magnifierActive = false
-            return
-        }
-        val view = binding.viewerContainer
-        magnifier = android.widget.Magnifier.Builder(view)
-            .setInitialZoom(2.2f)
-            .setSize((220 * resources.displayMetrics.density).toInt(), (220 * resources.displayMetrics.density).toInt())
-            .setCornerRadius(110 * resources.displayMetrics.density)
-            .build()
-        lensX = view.width / 2f
-        lensY = view.height / 2f
-        magnifierActive = true
-        magnifier?.show(lensX, lensY, lensX, lensY)
+        if (magnifierActive) lens.hide() else lens.show()
     }
 
     private fun moveMagnifier(dx: Int, dy: Int): Unit? {
-        val view = binding.viewerContainer
-        lensX = (lensX + dx).coerceIn(0f, view.width.toFloat())
-        lensY = (lensY + dy).coerceIn(0f, view.height.toFloat())
-        magnifier?.show(lensX, lensY, lensX, lensY)
+        magnifierLens?.moveBy(dx.toFloat(), dy.toFloat())
         return Unit
     }
     // KMK <--
