@@ -682,6 +682,7 @@ class ReaderActivity : BaseActivity() {
             )
             magnifierLens = it
         }
+        lens.zoom = Injekt.get<eu.kanade.domain.ui.UiPreferences>().magnifierZoom().get()
         if (magnifierActive) lens.hide() else lens.show()
     }
 
@@ -775,7 +776,15 @@ class ReaderActivity : BaseActivity() {
             val brightnessOn by readerPreferences.customBrightness().collectAsState()
             val brightnessValue by readerPreferences.customBrightnessValue().collectAsState()
             val shownBrightness = if (brightnessOn) brightnessValue else 0
+            val lensZoomPref = remember { Injekt.get<eu.kanade.domain.ui.UiPreferences>().magnifierZoom() }
+            val lensZoom by lensZoomPref.collectAsState()
             eu.kanade.presentation.reader.KodiReaderOsd(
+                magnifierZoom = lensZoom,
+                onMagnifierZoomChange = { delta ->
+                    val value = (lensZoom + delta).coerceIn(1.5f, 8f)
+                    lensZoomPref.set(value)
+                    magnifierLens?.zoom = value
+                },
                 brightness = shownBrightness,
                 onBrightnessChange = { delta ->
                     readerPreferences.customBrightness().set(true)

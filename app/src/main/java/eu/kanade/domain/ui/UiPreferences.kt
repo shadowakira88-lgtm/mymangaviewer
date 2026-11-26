@@ -50,6 +50,9 @@ class UiPreferences(
     fun vrOffsetY() = preferenceStore.getInt("pref_vr_offset_y", 0)
 
     /** Controller mapping: key code assigned to an action (see ControllerMapping). */
+    /** How many times the reader magnifier lens zooms in. */
+    fun magnifierZoom() = preferenceStore.getFloat("pref_magnifier_zoom", 2.5f)
+
     fun controllerKey(action: String, default: Int) = preferenceStore.getInt("pref_ctrl_$action", default)
 
     /** GitHub repository (owner/name) whose `latest` release is used for in-app updates. */

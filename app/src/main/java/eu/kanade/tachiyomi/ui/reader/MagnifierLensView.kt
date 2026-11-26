@@ -6,6 +6,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
+import android.os.Build
 import android.view.View
 
 // KMK -->
@@ -19,7 +20,13 @@ class MagnifierLensView(context: Context, private val source: View) : View(conte
     private val density = resources.displayMetrics.density
     private var radius = 110f * density
     private var square = false
-    private val zoom = 2.2f
+    /** How many times the lens magnifies (set from the reader menu). */
+    var zoom = 2.2f
+        set(value) {
+            field = value.coerceIn(1.2f, 8f)
+            invalidate()
+        }
+    private var node: android.graphics.RenderNode? = null
 
     var lensX = 0f
         private set
@@ -93,35 +100,60 @@ class MagnifierLensView(context: Context, private val source: View) : View(conte
 
     override fun onDraw(canvas: Canvas) {
         if (visibility != VISIBLE) return
-        val side = (radius * 2).toInt()
-        val bmp = bitmap ?: Bitmap.createBitmap(side, side, Bitmap.Config.ARGB_8888).also {
-            bitmap = it
-            bitmapCanvas = Canvas(it)
-        }
-        val c = bitmapCanvas ?: return
-        c.drawColor(Color.BLACK)
-        c.save()
-        c.scale(zoom, zoom)
-        // Lens centre -> middle of the small bitmap; source is drawn in its own coordinates.
-        c.translate(radius / zoom - lensX + source.left, radius / zoom - lensY + source.top)
-        val drawn = try {
-            source.draw(c)
-            true
-        } catch (_: Exception) {
-            false // e.g. a hardware bitmap on a software canvas: show the plain lens frame
-        }
-        c.restore()
-
-        canvas.save()
         clip.reset()
         if (square) {
             clip.addRect(lensX - radius, lensY - radius, lensX + radius, lensY + radius, Path.Direction.CW)
         } else {
             clip.addCircle(lensX, lensY, radius, Path.Direction.CW)
         }
-        canvas.clipPath(clip)
-        if (drawn) canvas.drawBitmap(bmp, lensX - radius, lensY - radius, null)
-        canvas.restore()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && canvas.isHardwareAccelerated) {
+            // Record the page as a display list: unlike a software bitmap this also works for the hardware
+            // bitmaps the reader uses, so the lens really shows the page enlarged.
+            val rn = node ?: android.graphics.RenderNode("lens").also { node = it }
+            val w = source.width
+            val h = source.height
+            if (w > 0 && h > 0) {
+                rn.setPosition(0, 0, w, h)
+                val rc = rn.beginRecording(w, h)
+                try {
+                    source.draw(rc)
+                } finally {
+                    rn.endRecording()
+                }
+                canvas.save()
+                canvas.clipPath(clip)
+                canvas.drawColor(Color.BLACK)
+                canvas.translate(lensX, lensY)
+                canvas.scale(zoom, zoom)
+                canvas.translate(-(lensX - source.left), -(lensY - source.top))
+                canvas.drawRenderNode(rn)
+                canvas.restore()
+            }
+        } else {
+            val side = (radius * 2).toInt()
+            val bmp = bitmap ?: Bitmap.createBitmap(side, side, Bitmap.Config.ARGB_8888).also {
+                bitmap = it
+                bitmapCanvas = Canvas(it)
+            }
+            val c = bitmapCanvas ?: return
+            c.drawColor(Color.BLACK)
+            c.save()
+            c.scale(zoom, zoom)
+            // Lens centre -> middle of the small bitmap; source is drawn in its own coordinates.
+            c.translate(radius / zoom - lensX + source.left, radius / zoom - lensY + source.top)
+            val drawn = try {
+                source.draw(c)
+                true
+            } catch (_: Exception) {
+                false
+            }
+            c.restore()
+            canvas.save()
+            canvas.clipPath(clip)
+            if (drawn) canvas.drawBitmap(bmp, lensX - radius, lensY - radius, null)
+            canvas.restore()
+        }
         if (square) {
             canvas.drawRect(lensX - radius, lensY - radius, lensX + radius, lensY + radius, ring)
         } else {

@@ -350,6 +350,7 @@
     <string name="wallpaper_set_ok">Wallpaper updated</string>
     <string name="wallpaper_set_failed">Could not use that picture</string>
     <string name="reader_osd_close">Close</string>
+    <string name="reader_osd_lens_zoom">Magnifier zoom</string>
     <string name="reader_osd_brightness">Brightness</string>
     <string name="menu_rename_group">Rename group</string>
     <string name="menu_delete_group">Delete group</string>

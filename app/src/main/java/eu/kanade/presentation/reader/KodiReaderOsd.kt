@@ -110,6 +110,9 @@ fun KodiReaderOsd(
     /** Custom brightness, -75..100 (0 = system brightness). */
     brightness: Int = 0,
     onBrightnessChange: (delta: Int) -> Unit = {},
+    /** How many times the magnifier lens zooms in. */
+    magnifierZoom: Float = 2.5f,
+    onMagnifierZoomChange: (delta: Float) -> Unit = {},
     // KMK <--
 ) {
     var calibrating by remember { mutableStateOf(false) }
@@ -195,6 +198,20 @@ fun KodiReaderOsd(
                         label = "+",
                         onClick = { onBrightnessChange(10) },
                     )
+                }
+                Spacer(Modifier.height(6.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    OsdButton(label = "−", onClick = { onMagnifierZoomChange(-0.5f) })
+                    Text(
+                        text = stringResource(KMR.strings.reader_osd_lens_zoom) + ": " +
+                            String.format(java.util.Locale.US, "%.1fx", magnifierZoom),
+                        color = Color.White,
+                        fontSize = 13.sp,
+                    )
+                    OsdButton(label = "+", onClick = { onMagnifierZoomChange(0.5f) })
                 }
                 Spacer(Modifier.height(6.dp))
                 // KMK <--
