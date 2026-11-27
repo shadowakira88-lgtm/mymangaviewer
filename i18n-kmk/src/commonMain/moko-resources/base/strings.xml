@@ -354,6 +354,11 @@
     <string name="reader_osd_brightness">Brightness</string>
     <string name="menu_move_up">Move up</string>
     <string name="menu_move_down">Move down</string>
+    <string name="menu_source_search_here">Search only this source</string>
+    <string name="menu_source_latest">Open latest updates</string>
+    <string name="menu_source_migrate">Migrate manga from this source</string>
+    <string name="menu_source_clear_cookies">Clear cookies of this source</string>
+    <string name="menu_source_cookies_cleared">Cookies cleared</string>
     <string name="menu_source_open">Open</string>
     <string name="menu_source_pin">Pin to top</string>
     <string name="menu_source_unpin">Unpin</string>

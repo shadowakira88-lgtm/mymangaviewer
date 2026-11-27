@@ -197,7 +197,32 @@ data class BrowseSourceScreen(
                 }
             }
         }
-        if (kodiLayout) {
+        if (kodiLayout && state.dialog is BrowseSourceScreenModel.Dialog.Filter) {
+            eu.kanade.presentation.kodi.KodiFilterMenu(
+                filters = state.filters,
+                savedSearches = state.savedSearches,
+                canSave = true,
+                onUpdate = screenModel::setFilters,
+                onReset = screenModel::resetFilters,
+                onSearch = { screenModel.search(filters = state.filters) },
+                onSave = screenModel::onSaveSearch,
+                onSavedSearch = { search -> screenModel.onSavedSearch(search) { context.toast(it) } },
+                onSavedSearchPress = screenModel::onSavedSearchPress,
+                mangaDexRandom = if (screenModel.source.isMdBasedSource()) {
+                    {
+                        screenModel.onMangaDexRandom { navigator.replace(BrowseSourceScreen(sourceId, "id:$it")) }
+                    }
+                } else {
+                    null
+                },
+                mangaDexFollows = if (screenModel.source.isMdBasedSource()) {
+                    { navigator.push(MangaDexFollowsScreen(sourceId)) }
+                } else {
+                    null
+                },
+                onDismiss = { screenModel.setDialog(null) },
+            )
+        } else if (kodiLayout) {
             val refresh = mangaList.loadState.refresh
             eu.kanade.presentation.kodi.KodiBrowseSourceList(
                 sourceName = screenModel.source.name,
@@ -452,7 +477,9 @@ data class BrowseSourceScreen(
 
         val onDismissRequest = { screenModel.setDialog(null) }
         when (val dialog = state.dialog) {
-            is BrowseSourceScreenModel.Dialog.Filter -> {
+            // KMK -->
+            is BrowseSourceScreenModel.Dialog.Filter -> if (!kodiLayout) {
+                // KMK <--
                 SourceFilterDialog(
                     onDismissRequest = onDismissRequest,
                     filters = state.filters,

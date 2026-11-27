@@ -1,11 +1,8 @@
 package mihon.feature.migration.config
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -13,9 +10,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import eu.kanade.domain.source.service.SourcePreferences
+import eu.kanade.presentation.kodi.KodiKeyboardDialog
 import eu.kanade.presentation.kodi.KodiListItem
 import eu.kanade.presentation.kodi.KodiListPage
 import mihon.domain.migration.models.MigrationFlag
@@ -129,10 +125,19 @@ fun KodiMigrationConfigSheet(
         }
     }
 
-    Dialog(
-        onDismissRequest = onDismissRequest,
-        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
-    ) {
+    // Drawn inside the window (not a Dialog) so it follows the controller mapping and is mirrored in VR mode.
+    BackHandler(onBack = onDismissRequest)
+    if (editingQuery) {
+        KodiKeyboardDialog(
+            title = stringResource(MR.strings.migrationConfigScreen_additionalSearchQueryLabel),
+            initial = extraSearchQuery,
+            onDismiss = { editingQuery = false },
+            onDone = {
+                extraSearchQuery = it
+                editingQuery = false
+            },
+        )
+    } else {
         Box(Modifier.fillMaxSize()) {
             KodiListPage(
                 title = stringResource(MR.strings.migrationConfigScreen_dataToMigrateHeader),
@@ -151,26 +156,6 @@ fun KodiMigrationConfigSheet(
                 ),
             )
         }
-    }
-
-    if (editingQuery) {
-        AlertDialog(
-            onDismissRequest = { editingQuery = false },
-            title = { Text(stringResource(MR.strings.migrationConfigScreen_additionalSearchQueryLabel)) },
-            text = {
-                OutlinedTextField(
-                    value = extraSearchQuery,
-                    onValueChange = { extraSearchQuery = it },
-                    singleLine = true,
-                    supportingText = {
-                        Text(stringResource(MR.strings.migrationConfigScreen_additionalSearchQuerySupportingText))
-                    },
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = { editingQuery = false }) { Text(stringResource(MR.strings.action_ok)) }
-            },
-        )
     }
 }
 // KMK <--

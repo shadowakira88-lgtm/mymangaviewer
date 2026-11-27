@@ -1,6 +1,7 @@
 package eu.kanade.presentation.kodi
 
 import android.text.format.DateUtils
+import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -16,16 +17,22 @@ import eu.kanade.domain.source.model.installedExtension
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.extension.ExtensionManager
+import eu.kanade.tachiyomi.network.NetworkHelper
+import eu.kanade.tachiyomi.source.online.HttpSource
+import eu.kanade.tachiyomi.ui.browse.migration.manga.MigrateMangaScreen
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreen
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.SourceFilter
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import kotlinx.coroutines.flow.collectLatest
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.history.interactor.GetHistory
 import tachiyomi.domain.manga.interactor.GetLibraryManga
 import tachiyomi.domain.manga.model.asMangaCover
+import tachiyomi.domain.source.interactor.GetRemoteManga
+import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.updates.interactor.GetUpdates
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.kmk.KMR
@@ -161,6 +168,9 @@ object KodiSourcesScreen : Screen() {
             Injekt.get<GetEnabledSources>().subscribe().collectLatest { value = it }
         }
         var menuSource by remember { mutableStateOf<tachiyomi.domain.source.model.Source?>(null) }
+        var searchSource by remember { mutableStateOf<tachiyomi.domain.source.model.Source?>(null) }
+        val context = LocalContext.current
+        val cookiesCleared = stringResource(KMR.strings.menu_source_cookies_cleared)
         val sourcePrefs = remember { Injekt.get<SourcePreferences>() }
         val pinned by sourcePrefs.pinnedSources().changes().collectAsState(sourcePrefs.pinnedSources().get())
         val items = sources
@@ -178,7 +188,17 @@ object KodiSourcesScreen : Screen() {
                     onLongClick = { menuSource = source },
                 ) { navigator.push(BrowseSourceScreen(source.id, null)) }
             }
-        if (filtering) {
+        if (searchSource != null) {
+            KodiKeyboardDialog(
+                title = stringResource(KMR.strings.menu_source_search_here),
+                onDismiss = { searchSource = null },
+                onDone = { query ->
+                    val target = searchSource
+                    searchSource = null
+                    if (target != null && query.isNotBlank()) navigator.push(BrowseSourceScreen(target.id, query))
+                },
+            )
+        } else if (filtering) {
             KodiKeyboardDialog(
                 title = stringResource(KMR.strings.kodi_sources_filter),
                 initial = nameFilter,
@@ -219,6 +239,44 @@ object KodiSourcesScreen : Screen() {
                                     navigator.push(BrowseSourceScreen(source.id, null))
                                 },
                             )
+                            // KMK -->
+                            add(
+                                KodiListItem(stringResource(KMR.strings.menu_source_search_here)) {
+                                    menuSource = null
+                                    searchSource = source
+                                },
+                            )
+                            if (source.supportsLatest) {
+                                add(
+                                    KodiListItem(stringResource(KMR.strings.menu_source_latest)) {
+                                        menuSource = null
+                                        navigator.push(BrowseSourceScreen(source.id, GetRemoteManga.QUERY_LATEST))
+                                    },
+                                )
+                            }
+                            add(
+                                KodiListItem(stringResource(KMR.strings.menu_source_migrate)) {
+                                    menuSource = null
+                                    navigator.push(MigrateMangaScreen(source.id))
+                                },
+                            )
+                            val httpSource = Injekt.get<SourceManager>().get(source.id) as? HttpSource
+                            if (httpSource != null) {
+                                add(
+                                    KodiListItem(stringResource(KMR.strings.menu_source_clear_cookies)) {
+                                        runCatching {
+                                            Injekt.get<NetworkHelper>().cookieJar.remove(httpSource.baseUrl.toHttpUrl())
+                                        }
+                                        Toast.makeText(
+                                            context,
+                                            cookiesCleared,
+                                            Toast.LENGTH_SHORT,
+                                        ).show()
+                                        menuSource = null
+                                    },
+                                )
+                            }
+                            // KMK <--
                             add(
                                 KodiListItem(
                                     stringResource(
