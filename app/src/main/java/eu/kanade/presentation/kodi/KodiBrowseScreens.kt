@@ -276,7 +276,6 @@ object KodiSourcesScreen : Screen() {
                 ),
             )
         }
-        }
     }
 }
 
