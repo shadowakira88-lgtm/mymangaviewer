@@ -353,6 +353,9 @@ object HomeScreen : Screen() {
                     KodiMenuAction(stringResource(KMR.strings.kodi_menu_browse_missing)) {
                         navigator.push(KodiMissingSourcesScreen)
                     },
+                    KodiMenuAction(stringResource(KMR.strings.kodi_menu_browse_blank)) {
+                        navigator.push(eu.kanade.presentation.kodi.KodiBlankSourcesScreen)
+                    },
                 ),
             ),
             KodiMenuEntry(
@@ -374,7 +377,11 @@ object HomeScreen : Screen() {
         eu.kanade.presentation.kodi.KodiMenuHost(
             active = groupMenuOpen,
             overlay = {
-                eu.kanade.presentation.kodi.KodiGroupMenu(group = groupMenu, onDismiss = { groupMenuOpen = false })
+                eu.kanade.presentation.kodi.KodiGroupMenu(
+                    group = groupMenu,
+                    groups = groups,
+                    onDismiss = { groupMenuOpen = false },
+                )
             },
         ) {
             KodiHome(

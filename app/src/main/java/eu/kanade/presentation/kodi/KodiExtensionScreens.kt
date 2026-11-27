@@ -12,6 +12,7 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.source.interactor.GetSourcesWithFavoriteCount
+import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.extension.model.Extension
@@ -99,19 +100,59 @@ private fun extensionJobText(key: String, progress: Map<String, Int>): String? {
     }
 }
 
-/**
- * Kodi-style extension list: updates first, then installed, then available.
- * Press = select / unselect (several can be installed at once), header button installs the selection.
- * Y / long press = uninstall.
- */
+/** Extensions hub: updates, installed and not installed extensions each get their own list. */
 object KodiExtensionsScreen : Screen() {
     @Suppress("unused")
     private fun readResolve(): Any = KodiExtensionsScreen
 
     @Composable
     override fun Content() {
+        val navigator = LocalNavigator.currentOrThrow
+        val manager = remember { Injekt.get<ExtensionManager>() }
+        val installed by produceState(initialValue = emptyList<Extension.Installed>()) {
+            manager.installedExtensionsFlow.collectLatest { value = it }
+        }
+        val available by produceState(initialValue = emptyList<Extension.Available>()) {
+            manager.availableExtensionsFlow.collectLatest { value = it }
+        }
+        produceState(initialValue = Unit) { runCatching { manager.findAvailableExtensions() } }
+        val installedPkgs = installed.map { it.pkgName }.toSet()
+        KodiListPage(
+            title = stringResource(MR.strings.label_extensions),
+            items = listOf(
+                KodiListItem(
+                    stringResource(KMR.strings.kodi_extension_hub_updates, installed.count { it.hasUpdate }),
+                ) { navigator.push(KodiExtensionListScreen(ExtensionKind.UPDATES)) },
+                KodiListItem(
+                    stringResource(KMR.strings.kodi_extension_hub_installed, installed.count { !it.hasUpdate }),
+                ) { navigator.push(KodiExtensionListScreen(ExtensionKind.INSTALLED)) },
+                KodiListItem(
+                    stringResource(
+                        KMR.strings.kodi_extension_hub_available,
+                        available.count { it.pkgName !in installedPkgs },
+                    ),
+                ) { navigator.push(KodiExtensionListScreen(ExtensionKind.AVAILABLE)) },
+            ),
+        )
+    }
+}
+
+enum class ExtensionKind { UPDATES, INSTALLED, AVAILABLE }
+
+/**
+ * One kind of extensions (updates / installed / not installed) with a name filter. Press = select / unselect
+ * (several can be installed at once with progress), the header button installs the selection. On the
+ * installed list, press opens a menu to uninstall.
+ */
+class KodiExtensionListScreen(private val kind: ExtensionKind) : Screen() {
+
+    @Composable
+    override fun Content() {
         val manager = remember { Injekt.get<ExtensionManager>() }
         var selected by remember { mutableStateOf(emptySet<String>()) }
+        var nameFilter by remember { mutableStateOf("") }
+        var filtering by remember { mutableStateOf(false) }
+        var menuExt by remember { mutableStateOf<Extension.Installed?>(null) }
 
         val installed by produceState(initialValue = emptyList<Extension.Installed>()) {
             manager.installedExtensionsFlow.collectLatest { value = it }
@@ -120,7 +161,6 @@ object KodiExtensionsScreen : Screen() {
             manager.availableExtensionsFlow.collectLatest { value = it }
         }
         val progress by manager.installProgress.collectAsState()
-        // Make sure the extension store list is fetched at least once.
         produceState(initialValue = Unit) { runCatching { manager.findAvailableExtensions() } }
 
         val installedText = stringResource(KMR.strings.kodi_extension_installed)
@@ -129,60 +169,83 @@ object KodiExtensionsScreen : Screen() {
         val selectedText = stringResource(KMR.strings.kodi_extension_selected)
 
         val installedPkgs = installed.map { it.pkgName }.toSet()
-        val toInstall = available.filter { it.pkgName !in installedPkgs }
+        fun matches(name: String) = nameFilter.isBlank() || name.contains(nameFilter, ignoreCase = true)
         val updatable = installed.filter { it.hasUpdate }
+        val toInstall = available.filter { it.pkgName !in installedPkgs }
 
         fun toggle(key: String) {
             selected = if (key in selected) selected - key else selected + key
         }
 
         val items = buildList {
-            installed.sortedByDescending { it.hasUpdate }.forEach { ext ->
-                val key = ext.pkgName
-                val job = extensionJobText(key, progress)
-                add(
-                    KodiListItem(
-                        title = (if (key in selected) "✓ " else "") + ext.name,
-                        subtitle = job ?: when {
-                            key in selected -> selectedText
-                            ext.hasUpdate -> "${ext.versionName} · $updateText"
-                            else -> "${ext.versionName} · $installedText"
-                        },
-                        onLongClick = { manager.uninstallExtension(ext) },
-                    ) {
-                        if (ext.hasUpdate && !KodiExtensionJobs.isBusy(key)) toggle(key)
-                    },
-                )
-            }
-            toInstall
-                .sortedWith(compareBy({ it.lang }, { it.name.lowercase() }))
-                .forEach { ext ->
-                    val key = ext.pkgName
-                    add(
-                        KodiListItem(
-                            title = (if (key in selected) "✓ " else "") + ext.name,
-                            subtitle = extensionJobText(key, progress) ?: if (key in selected) {
-                                selectedText
-                            } else {
-                                "${ext.lang.orEmpty()} · ${ext.versionName} · $installText"
-                            },
-                        ) { if (!KodiExtensionJobs.isBusy(key)) toggle(key) },
-                    )
+            when (kind) {
+                ExtensionKind.UPDATES, ExtensionKind.INSTALLED -> {
+                    installed
+                        .filter { (kind == ExtensionKind.UPDATES) == it.hasUpdate && matches(it.name) }
+                        .sortedBy { it.name.lowercase() }
+                        .forEach { ext ->
+                            val key = ext.pkgName
+                            add(
+                                KodiListItem(
+                                    title = (if (key in selected) "✓ " else "") + ext.name,
+                                    subtitle = extensionJobText(key, progress) ?: when {
+                                        key in selected -> selectedText
+                                        ext.hasUpdate -> "${ext.versionName} · $updateText"
+                                        else -> "${ext.versionName} · $installedText"
+                                    },
+                                    onLongClick = { menuExt = ext },
+                                ) {
+                                    if (ext.hasUpdate) {
+                                        if (!KodiExtensionJobs.isBusy(key)) toggle(key)
+                                    } else {
+                                        menuExt = ext
+                                    }
+                                },
+                            )
+                        }
                 }
+                ExtensionKind.AVAILABLE -> {
+                    toInstall
+                        .filter { matches(it.name) }
+                        .sortedWith(compareBy({ it.lang }, { it.name.lowercase() }))
+                        .forEach { ext ->
+                            val key = ext.pkgName
+                            add(
+                                KodiListItem(
+                                    title = (if (key in selected) "✓ " else "") + ext.name,
+                                    subtitle = extensionJobText(key, progress) ?: if (key in selected) {
+                                        selectedText
+                                    } else {
+                                        "${ext.lang.orEmpty()} · ${ext.versionName} · $installText"
+                                    },
+                                ) { if (!KodiExtensionJobs.isBusy(key)) toggle(key) },
+                            )
+                        }
+                }
+            }
         }
 
         val actions = buildList {
+            add(
+                KodiListItem(
+                    if (nameFilter.isBlank()) {
+                        stringResource(KMR.strings.kodi_extension_filter)
+                    } else {
+                        stringResource(KMR.strings.kodi_sources_filter_on, nameFilter)
+                    },
+                ) { filtering = true },
+            )
             if (selected.isNotEmpty()) {
                 add(
                     KodiListItem(stringResource(KMR.strings.kodi_extension_install_selected, selected.size)) {
-                        installed.filter { it.pkgName in selected && it.hasUpdate }.forEach(KodiExtensionJobs::update)
+                        updatable.filter { it.pkgName in selected }.forEach(KodiExtensionJobs::update)
                         toInstall.filter { it.pkgName in selected }.forEach(KodiExtensionJobs::install)
                         selected = emptySet()
                     },
                 )
                 add(KodiListItem(stringResource(KMR.strings.kodi_extension_clear)) { selected = emptySet() })
             }
-            if (updatable.isNotEmpty()) {
+            if (kind == ExtensionKind.UPDATES && updatable.isNotEmpty()) {
                 add(
                     KodiListItem(stringResource(KMR.strings.kodi_extension_update_all)) {
                         updatable.forEach(KodiExtensionJobs::update)
@@ -190,11 +253,49 @@ object KodiExtensionsScreen : Screen() {
                 )
             }
         }
-        KodiListPage(
-            title = stringResource(MR.strings.label_extensions),
-            items = items.ifEmpty { listOf(KodiListItem(stringResource(KMR.strings.kodi_empty_list)) {}) },
-            headerActions = actions,
-        )
+
+        if (filtering) {
+            KodiKeyboardDialog(
+                title = stringResource(KMR.strings.kodi_extension_filter),
+                initial = nameFilter,
+                onDismiss = { filtering = false },
+                onDone = {
+                    nameFilter = it
+                    filtering = false
+                },
+            )
+            return
+        }
+        KodiMenuHost(
+            active = menuExt != null,
+            overlay = {
+                menuExt?.let { ext ->
+                    KodiContextMenu(
+                        title = ext.name,
+                        onDismiss = { menuExt = null },
+                        items = listOf(
+                            KodiListItem(stringResource(KMR.strings.menu_source_uninstall)) {
+                                manager.uninstallExtension(ext)
+                                menuExt = null
+                            },
+                            KodiListItem(stringResource(MR.strings.action_cancel)) { menuExt = null },
+                        ),
+                    )
+                }
+            },
+        ) {
+            KodiListPage(
+                title = stringResource(
+                    when (kind) {
+                        ExtensionKind.UPDATES -> KMR.strings.kodi_extension_update_title
+                        ExtensionKind.INSTALLED -> KMR.strings.kodi_extension_installed
+                        ExtensionKind.AVAILABLE -> KMR.strings.kodi_extension_available_title
+                    },
+                ),
+                items = items.ifEmpty { listOf(KodiListItem(stringResource(KMR.strings.kodi_empty_list)) {}) },
+                headerActions = actions,
+            )
+        }
     }
 }
 
@@ -311,6 +412,57 @@ object KodiMissingSourcesScreen : Screen() {
             items = items.ifEmpty { listOf(KodiListItem(stringResource(KMR.strings.kodi_missing_none)) {}) },
             headerActions = actions,
         )
+    }
+}
+/**
+ * Sources put on the blank list: hidden from Sources (and search) until they are added back here.
+ */
+object KodiBlankSourcesScreen : Screen() {
+    @Suppress("unused")
+    private fun readResolve(): Any = KodiBlankSourcesScreen
+
+    @Composable
+    override fun Content() {
+        val sourceManager = remember { Injekt.get<SourceManager>() }
+        val prefs = remember { Injekt.get<SourcePreferences>() }
+        val blankIds by prefs.disabledSources().changes().collectAsState(prefs.disabledSources().get())
+        val all by produceState(initialValue = emptyList<eu.kanade.tachiyomi.source.Source>()) {
+            sourceManager.sources.collectLatest { value = it }
+        }
+        var menuSource by remember { mutableStateOf<eu.kanade.tachiyomi.source.Source?>(null) }
+        val sources = all
+            .filter { it.id.toString() in blankIds }
+            .sortedWith(compareBy({ it.lang }, { it.name.lowercase() }))
+        val summary = stringResource(KMR.strings.kodi_blank_summary)
+        KodiMenuHost(
+            active = menuSource != null,
+            overlay = {
+                menuSource?.let { source ->
+                    KodiContextMenu(
+                        title = source.name,
+                        onDismiss = { menuSource = null },
+                        items = listOf(
+                            KodiListItem(stringResource(KMR.strings.menu_source_back)) {
+                                prefs.disabledSources().set(prefs.disabledSources().get() - source.id.toString())
+                                menuSource = null
+                            },
+                            KodiListItem(stringResource(MR.strings.action_cancel)) { menuSource = null },
+                        ),
+                    )
+                }
+            },
+        ) {
+            KodiListPage(
+                title = stringResource(KMR.strings.kodi_menu_browse_blank),
+                items = sources.map { source ->
+                    KodiListItem(
+                        title = source.name,
+                        subtitle = "${source.lang} · $summary",
+                        onLongClick = { menuSource = source },
+                    ) { menuSource = source }
+                }.ifEmpty { listOf(KodiListItem(stringResource(KMR.strings.kodi_blank_none)) {}) },
+            )
+        }
     }
 }
 // KMK <--

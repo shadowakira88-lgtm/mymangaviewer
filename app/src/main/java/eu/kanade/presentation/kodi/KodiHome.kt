@@ -2,6 +2,7 @@ package eu.kanade.presentation.kodi
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
@@ -14,13 +15,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -31,15 +31,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -98,24 +101,33 @@ fun KodiHome(
             },
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Row(
+        // Elena logo fills the space above the menu; the label row below it is locked in the middle of the screen.
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(end = 12.dp),
-            horizontalArrangement = Arrangement.End,
+                .weight(1f)
+                .fillMaxWidth(),
+            contentAlignment = Alignment.Center,
         ) {
-            KodiUpdateButton(label = updateLabel, onClick = onUpdateAll, modifier = Modifier)
-        }
-        if (posters.isNotEmpty()) {
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 24.dp),
+            Box(
+                modifier = Modifier
+                    .size(88.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(
+                        Brush.verticalGradient(listOf(Color(0xFF3D7FC0), Color(0xFF2A95B7))),
+                    ),
+                contentAlignment = Alignment.Center,
             ) {
-                items(posters, key = { it.mangaId }) { poster ->
-                    KodiPosterItem(poster = poster, onClick = { onClickPoster(poster.mangaId) })
-                }
+                Image(
+                    painter = painterResource(eu.kanade.tachiyomi.R.drawable.elena_icon_fg),
+                    contentDescription = null,
+                    modifier = Modifier.size(88.dp),
+                )
             }
-            Spacer(modifier = Modifier.height(10.dp))
+            KodiUpdateButton(
+                label = updateLabel,
+                onClick = onUpdateAll,
+                modifier = Modifier.align(Alignment.TopEnd).padding(end = 12.dp),
+            )
         }
 
         // Labels are fixed; only the sub-items underneath scroll when the list is long.
@@ -306,7 +318,7 @@ private fun KodiSubItem(
                     false
                 }
             }
-            .combinedClickable(onClick = action.onClick)
+            .combinedClickable(onClick = action.onClick, onLongClick = action.onMenu)
             .padding(vertical = 6.dp),
     )
 }

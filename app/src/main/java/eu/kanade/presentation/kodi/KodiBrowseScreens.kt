@@ -2,6 +2,7 @@ package eu.kanade.presentation.kodi
 
 import android.text.format.DateUtils
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -14,6 +15,7 @@ import eu.kanade.domain.source.interactor.GetEnabledSources
 import eu.kanade.domain.source.model.installedExtension
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.presentation.util.Screen
+import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreen
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.SourceFilter
@@ -158,14 +160,22 @@ object KodiSourcesScreen : Screen() {
         val sources by produceState(initialValue = emptyList<tachiyomi.domain.source.model.Source>()) {
             Injekt.get<GetEnabledSources>().subscribe().collectLatest { value = it }
         }
+        var menuSource by remember { mutableStateOf<tachiyomi.domain.source.model.Source?>(null) }
+        val sourcePrefs = remember { Injekt.get<SourcePreferences>() }
+        val pinned by sourcePrefs.pinnedSources().changes().collectAsState(sourcePrefs.pinnedSources().get())
         val items = sources
             .filter { !nsfwOnly || it.installedExtension?.isNsfw != false }
             .filter { nameFilter.isBlank() || it.name.contains(nameFilter, ignoreCase = true) }
-            .sortedWith(compareBy({ it.lang }, { it.name.lowercase() }))
+            .sortedWith(
+                compareBy<tachiyomi.domain.source.model.Source>({ it.id.toString() !in pinned })
+                    .thenBy { it.lang }
+                    .thenBy { it.name.lowercase() },
+            )
             .map { source ->
                 KodiListItem(
-                    title = source.name,
+                    title = (if (source.id.toString() in pinned) "★ " else "") + source.name,
                     subtitle = source.lang,
+                    onLongClick = { menuSource = source },
                 ) { navigator.push(BrowseSourceScreen(source.id, null)) }
             }
         if (filtering) {
@@ -193,7 +203,59 @@ object KodiSourcesScreen : Screen() {
                     }
                 },
             )
-        } else {
+        } else KodiMenuHost(
+            active = menuSource != null,
+            overlay = {
+                menuSource?.let { source ->
+                    val isPinned = source.id.toString() in pinned
+                    val ext = source.installedExtension
+                    KodiContextMenu(
+                        title = source.name,
+                        onDismiss = { menuSource = null },
+                        items = buildList {
+                            add(
+                                KodiListItem(stringResource(KMR.strings.menu_source_open)) {
+                                    menuSource = null
+                                    navigator.push(BrowseSourceScreen(source.id, null))
+                                },
+                            )
+                            add(
+                                KodiListItem(
+                                    stringResource(
+                                        if (isPinned) {
+                                            KMR.strings.menu_source_unpin
+                                        } else {
+                                            KMR.strings.menu_source_pin
+                                        },
+                                    ),
+                                ) {
+                                    val current = sourcePrefs.pinnedSources().get()
+                                    val id = source.id.toString()
+                                    sourcePrefs.pinnedSources().set(if (isPinned) current - id else current + id)
+                                    menuSource = null
+                                },
+                            )
+                            add(
+                                KodiListItem(stringResource(KMR.strings.menu_source_blank)) {
+                                    val blank = sourcePrefs.disabledSources()
+                                    blank.set(blank.get() + source.id.toString())
+                                    menuSource = null
+                                },
+                            )
+                            if (ext != null) {
+                                add(
+                                    KodiListItem(stringResource(KMR.strings.menu_source_uninstall)) {
+                                        Injekt.get<ExtensionManager>().uninstallExtension(ext)
+                                        menuSource = null
+                                    },
+                                )
+                            }
+                            add(KodiListItem(stringResource(MR.strings.action_cancel)) { menuSource = null })
+                        },
+                    )
+                }
+            },
+        ) {
             KodiListPage(
                 title = stringResource(MR.strings.label_sources),
                 items = items.ifEmpty { listOf(emptyItem()) },
@@ -213,6 +275,7 @@ object KodiSourcesScreen : Screen() {
                     ) { nsfwOnly = !nsfwOnly },
                 ),
             )
+        }
         }
     }
 }
