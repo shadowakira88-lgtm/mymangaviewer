@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -35,6 +34,7 @@ import tachiyomi.presentation.core.i18n.stringResource
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import kotlin.math.absoluteValue
+import eu.kanade.presentation.kodi.KodiAlertDialog as AlertDialog
 
 @Composable
 fun DeleteChaptersDialog(

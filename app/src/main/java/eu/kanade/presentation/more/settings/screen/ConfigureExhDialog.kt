@@ -1,6 +1,5 @@
 package eu.kanade.presentation.more.settings.screen
 
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -26,6 +25,7 @@ import tachiyomi.presentation.core.i18n.stringResource
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import kotlin.time.Duration.Companion.seconds
+import eu.kanade.presentation.kodi.KodiAlertDialog as AlertDialog
 
 @Composable
 fun ConfigureExhDialog(run: Boolean, onRunning: () -> Unit) {

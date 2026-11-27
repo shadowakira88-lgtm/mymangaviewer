@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
@@ -58,6 +57,7 @@ import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.presentation.core.util.plus
 import kotlin.time.Duration.Companion.seconds
 import tachiyomi.domain.source.model.Source as DomainSource
+import eu.kanade.presentation.kodi.KodiAlertDialog as AlertDialog
 
 data class FeedItemUI(
     val feed: FeedSavedSearch,

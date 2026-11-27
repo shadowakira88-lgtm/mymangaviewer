@@ -89,7 +89,9 @@ fun TachiyomiTheme(
 // KMK -->
 @Composable
 private fun KodiFocusProvider(content: @Composable () -> Unit) {
-    CompositionLocalProvider(LocalIndication provides KodiFocusIndication, content = content)
+    CompositionLocalProvider(LocalIndication provides KodiFocusIndication) {
+        eu.kanade.presentation.kodi.KodiDialogRoot(content)
+    }
 }
 // KMK <--
 
