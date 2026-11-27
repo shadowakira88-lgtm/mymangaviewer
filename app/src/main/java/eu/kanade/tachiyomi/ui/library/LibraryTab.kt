@@ -181,6 +181,12 @@ data object LibraryTab : Tab {
                         onSelectMultiple = {
                             kodiMenuCategory?.let { screenModel.toggleRangeSelection(it, entry) }
                         },
+                        onWallpaperFromPhone = {
+                            navigator.push(eu.kanade.presentation.kodi.KodiWallpaperFolderScreen())
+                        },
+                        onWallpaperFromWeb = {
+                            navigator.push(eu.kanade.presentation.kodi.KodiWallpaperWebScreen(entry.manga.title))
+                        },
                         onDismiss = { kodiMenuManga = null },
                     )
                 }

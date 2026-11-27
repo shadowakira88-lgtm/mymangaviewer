@@ -349,6 +349,17 @@
     <string name="wallpaper_reset_summary">Go back to the plain background</string>
     <string name="wallpaper_set_ok">Wallpaper updated</string>
     <string name="wallpaper_set_failed">Could not use that picture</string>
+    <string name="menu_change_wallpaper">Change wallpaper</string>
+    <string name="wallpaper_from_phone">From phone (browse files)</string>
+    <string name="wallpaper_from_web">From web: search this manga</string>
+    <string name="wallpaper_from_web_title">Wallpaper from web</string>
+    <string name="wallpaper_allow_access">Allow file access</string>
+    <string name="wallpaper_refresh">Refresh</string>
+    <string name="wallpaper_search_change">Change search text</string>
+    <string name="wallpaper_downloading">Downloading…</string>
+    <string name="wallpaper_searching">Searching…</string>
+    <string name="wallpaper_no_results">No pictures found</string>
+    <string name="wallpaper_too_small">Picture is too small, pick another</string>
     <string name="reader_osd_close">Close</string>
     <string name="reader_osd_lens_zoom">Magnifier zoom</string>
     <string name="reader_osd_brightness">Brightness</string>

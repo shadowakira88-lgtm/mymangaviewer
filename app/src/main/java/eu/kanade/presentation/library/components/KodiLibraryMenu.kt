@@ -33,11 +33,14 @@ fun KodiLibraryMenu(
     onSetCategories: (add: List<Long>, remove: List<Long>) -> Unit,
     onRemove: () -> Unit,
     onSelectMultiple: () -> Unit,
+    onWallpaperFromPhone: () -> Unit,
+    onWallpaperFromWeb: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     var step by remember { mutableStateOf(MangaStep.MAIN) }
     var version by remember { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
+    val context = androidx.compose.ui.platform.LocalContext.current
     val groups = categories.filter { it.id != 0L && !it.isSystemCategory }
     when (step) {
         MangaStep.MAIN -> KodiContextMenu(
@@ -51,7 +54,27 @@ fun KodiLibraryMenu(
                     onSelectMultiple()
                     onDismiss()
                 },
+                KodiListItem(stringResource(KMR.strings.menu_change_wallpaper)) { step = MangaStep.WALLPAPER },
                 KodiListItem(stringResource(MR.strings.action_cancel)) { onDismiss() },
+            ),
+        )
+        MangaStep.WALLPAPER -> KodiContextMenu(
+            title = stringResource(KMR.strings.menu_change_wallpaper),
+            onDismiss = { step = MangaStep.MAIN },
+            items = listOf(
+                KodiListItem(stringResource(KMR.strings.wallpaper_from_phone)) {
+                    onWallpaperFromPhone()
+                    onDismiss()
+                },
+                KodiListItem(stringResource(KMR.strings.wallpaper_from_web)) {
+                    onWallpaperFromWeb()
+                    onDismiss()
+                },
+                KodiListItem(stringResource(KMR.strings.wallpaper_reset)) {
+                    eu.kanade.presentation.kodi.KodiWallpaper.clear(context)
+                    onDismiss()
+                },
+                KodiListItem(stringResource(MR.strings.action_cancel)) { step = MangaStep.MAIN },
             ),
         )
         MangaStep.MOVE -> {
@@ -102,5 +125,5 @@ fun KodiLibraryMenu(
     }
 }
 
-private enum class MangaStep { MAIN, MOVE, REMOVE, CREATE }
+private enum class MangaStep { MAIN, WALLPAPER, MOVE, REMOVE, CREATE }
 // KMK <--

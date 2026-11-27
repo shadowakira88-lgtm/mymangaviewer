@@ -108,6 +108,10 @@ data class KodiListItem(
     val subtitle: String? = null,
     val cover: DomainMangaCover? = null,
     val onLongClick: (() -> Unit)? = null,
+    // KMK -->
+    /** Image (url or file) shown big in the left panel while this row is highlighted. */
+    val preview: Any? = null,
+    // KMK <--
     val onClick: () -> Unit,
 )
 
@@ -149,6 +153,16 @@ fun KodiListPage(
             items.getOrNull(focused)?.cover?.let {
                 MangaCover.Book(data = it, modifier = Modifier.padding(top = 12.dp).height(140.dp))
             }
+            // KMK -->
+            items.getOrNull(focused)?.preview?.let {
+                coil3.compose.AsyncImage(
+                    model = it,
+                    contentDescription = null,
+                    contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                    modifier = Modifier.padding(top = 12.dp).fillMaxWidth().height(120.dp),
+                )
+            }
+            // KMK <--
         }
         LazyColumn(
             modifier = Modifier

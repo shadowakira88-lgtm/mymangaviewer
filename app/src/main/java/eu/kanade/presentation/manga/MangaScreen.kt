@@ -222,7 +222,7 @@ fun MangaScreen(
             onContinueReading = onContinueReading,
             onWebViewClicked = onWebViewClicked,
             onTrackingClicked = onTrackingClicked,
-            onFilterClicked = onFilterButtonClicked,
+            onMigrateClicked = onMigrateClicked,
             onMultiBookmarkClicked = onMultiBookmarkClicked,
             onMultiMarkAsReadClicked = onMultiMarkAsReadClicked,
             onRefresh = onRefresh,

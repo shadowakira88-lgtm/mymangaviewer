@@ -76,7 +76,7 @@ fun KodiMangaScreen(
     onContinueReading: () -> Unit,
     onWebViewClicked: (() -> Unit)?,
     onTrackingClicked: () -> Unit,
-    onFilterClicked: () -> Unit,
+    onMigrateClicked: (() -> Unit)?,
     onMultiBookmarkClicked: (List<Chapter>, Boolean) -> Unit,
     onMultiMarkAsReadClicked: (List<Chapter>, Boolean) -> Unit,
     onRefresh: () -> Unit,
@@ -192,7 +192,9 @@ fun KodiMangaScreen(
                         ),
                         onClick = onAddToLibraryClicked,
                     )
-                    KodiButton(text = stringResource(MR.strings.action_filter), onClick = onFilterClicked)
+                    if (onMigrateClicked != null) {
+                        KodiButton(text = stringResource(MR.strings.migrate), onClick = onMigrateClicked)
+                    }
                     if (state.trackingCount > 0 || state.hasLoggedInTrackers) {
                         KodiButton(text = stringResource(MR.strings.manga_tracking_tab), onClick = onTrackingClicked)
                     }

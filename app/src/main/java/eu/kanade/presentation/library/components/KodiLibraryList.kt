@@ -92,6 +92,9 @@ internal fun KodiLibraryList(
     val listState = rememberLazyListState()
     val initialFocus = remember { FocusRequester() }
     val initialId = remember { focused.id }
+    // KMK -->
+    val sourceManager = remember { uy.kohesive.injekt.Injekt.get<tachiyomi.domain.source.service.SourceManager>() }
+    // KMK <--
 
     LaunchedEffect(requestFocus) {
         if (requestFocus) {
@@ -146,6 +149,15 @@ internal fun KodiLibraryList(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 6.dp),
                 )
+                // KMK -->
+                Text(
+                    text = sourceManager.getOrStub(focused.libraryManga.manga.source).name,
+                    color = Color(0xFF8C8C8C),
+                    fontSize = 11.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                // KMK <--
             }
 
             // Right: VR toggle + list
@@ -166,6 +178,9 @@ internal fun KodiLibraryList(
                     ) { _, item ->
                         KodiRow(
                             title = item.libraryManga.manga.title,
+                            // KMK -->
+                            source = sourceManager.getOrStub(item.libraryManga.manga.source).name,
+                            // KMK <--
                             badge = item.unreadCount.takeIf { it > 0 }?.toString(),
                             isSelected = item.id in selection,
                             modifier = if (item.id == initialId) {
@@ -191,6 +206,9 @@ internal fun KodiLibraryList(
 @Composable
 private fun KodiRow(
     title: String,
+    // KMK -->
+    source: String? = null,
+    // KMK <--
     badge: String?,
     isSelected: Boolean,
     modifier: Modifier,
@@ -245,19 +263,33 @@ private fun KodiRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text(
-            text = title,
-            color = when {
-                isSelected -> Color(0xFFFFC857)
-                hasFocus -> KodiFocusBlue
-                else -> Color.White
-            },
-            fontSize = 14.sp,
-            fontWeight = if (hasFocus) FontWeight.Medium else FontWeight.Normal,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
+        // KMK -->
+        Column(modifier = Modifier.weight(1f)) {
+            // KMK <--
+            Text(
+                text = title,
+                color = when {
+                    isSelected -> Color(0xFFFFC857)
+                    hasFocus -> KodiFocusBlue
+                    else -> Color.White
+                },
+                fontSize = 14.sp,
+                fontWeight = if (hasFocus) FontWeight.Medium else FontWeight.Normal,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            // KMK -->
+            if (source != null) {
+                Text(
+                    text = source,
+                    color = Color(0xFF8C8C8C),
+                    fontSize = 11.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        // KMK <--
         if (badge != null) {
             Text(
                 text = badge,
