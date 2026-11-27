@@ -107,15 +107,17 @@ internal fun KodiLibraryList(
             .fillMaxSize()
             .background(Color.Black),
     ) {
-        AsyncImage(
-            model = focused.libraryManga.toCover(),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .fillMaxSize()
-                .blur(24.dp)
-                .alpha(0.30f),
-        )
+        eu.kanade.presentation.kodi.KodiMangaBackdrop(focused.libraryManga.manga.id) {
+            AsyncImage(
+                model = focused.libraryManga.toCover(),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .blur(24.dp)
+                    .alpha(0.30f),
+            )
+        }
 
         Row(
             modifier = Modifier

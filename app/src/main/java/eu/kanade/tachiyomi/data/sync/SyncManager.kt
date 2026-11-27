@@ -6,6 +6,7 @@ import eu.kanade.domain.sync.SyncPreferences
 import eu.kanade.tachiyomi.data.backup.create.BackupCreator
 import eu.kanade.tachiyomi.data.backup.create.BackupOptions
 import eu.kanade.tachiyomi.data.backup.models.Backup
+import eu.kanade.tachiyomi.data.backup.models.BackupCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupChapter
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.restore.BackupRestoreJob
@@ -24,6 +25,7 @@ import tachiyomi.core.common.util.system.logcat
 import tachiyomi.data.Chapters
 import tachiyomi.data.DatabaseHandler
 import tachiyomi.data.manga.MangaMapper.mapManga
+import tachiyomi.domain.category.interactor.DeleteCategory
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.manga.model.Manga
 import uy.kohesive.injekt.Injekt
@@ -48,6 +50,9 @@ class SyncManager(
         ignoreUnknownKeys = true
     },
     private val getCategories: GetCategories = Injekt.get(),
+    // KMK -->
+    private val deleteCategory: DeleteCategory = Injekt.get(),
+    // KMK <--
 ) {
     private val backupCreator: BackupCreator = BackupCreator(context, false)
     private val notifier: SyncNotifier = SyncNotifier(context)
@@ -170,6 +175,9 @@ class SyncManager(
         if (remoteBackup === syncData.backup) {
             // nothing changed
             logcat(LogPriority.DEBUG) { "Skip restore due to remote was overwrite from local" }
+            // KMK -->
+            applyCategoryChanges(remoteBackup.backupCategories, restoring = false)
+            // KMK <--
             syncPreferences.lastSyncTimestamp().set(Date().time)
             notifier.showSyncSuccess("Sync completed successfully")
             return
@@ -184,6 +192,9 @@ class SyncManager(
         // Check if it's first sync based on lastSyncTimestamp
         if (syncPreferences.lastSyncTimestamp().get() == 0L && databaseManga.isNotEmpty()) {
             // It's first sync no need to restore data. (just update remote data)
+            // KMK -->
+            applyCategoryChanges(remoteBackup.backupCategories, restoring = false)
+            // KMK <--
             syncPreferences.lastSyncTimestamp().set(Date().time)
             notifier.showSyncSuccess("Updated remote data successfully")
             return
@@ -211,12 +222,18 @@ class SyncManager(
 
         // It's local sync no need to restore data. (just update remote data)
         if (filteredFavorites.isEmpty()) {
+            // KMK -->
+            applyCategoryChanges(remoteBackup.backupCategories, restoring = false)
+            // KMK <--
             // update the sync timestamp
             syncPreferences.lastSyncTimestamp().set(Date().time)
             notifier.showSyncSuccess("Sync completed successfully")
             return
         }
 
+        // KMK -->
+        applyCategoryChanges(remoteBackup.backupCategories, restoring = true)
+        // KMK <--
         val backupUri = writeSyncDataToCache(context, newSyncData)
         logcat(LogPriority.DEBUG) { "Got Backup Uri: $backupUri" }
         if (backupUri != null) {
@@ -238,6 +255,29 @@ class SyncManager(
             logcat(LogPriority.ERROR) { "Failed to write sync data to file" }
         }
     }
+
+    // KMK -->
+    /**
+     * Groups that were synced before but are no longer in the merged list were deleted (or renamed) on the other
+     * phone: delete them here too (restoring a backup only adds groups), then remember the names for the next sync.
+     */
+    private suspend fun applyCategoryChanges(merged: List<BackupCategory>, restoring: Boolean) {
+        if (!syncPreferences.getSyncSettings().categories) return
+        val previous = syncPreferences.syncedCategories().get()
+        val mergedNames = merged.map { it.name }.toSet()
+        if (previous.isNotEmpty() && mergedNames.isNotEmpty()) {
+            getCategories.await()
+                .filter { !it.isSystemCategory && it.name !in mergedNames && it.name in previous }
+                .forEach { deleteCategory.await(it.id) }
+        }
+        val names = if (restoring) {
+            mergedNames
+        } else {
+            getCategories.await().filter { !it.isSystemCategory }.map { it.name }.toSet()
+        }
+        syncPreferences.syncedCategories().set(names)
+    }
+    // KMK <--
 
     private fun writeSyncDataToCache(context: Context, backup: Backup): Uri? {
         val cacheFile = File(context.cacheDir, "tachiyomi_sync_data.proto.gz")

@@ -36,8 +36,13 @@ abstract class SyncService(
      * @return The JSON string containing the merged sync data.
      */
     protected fun mergeSyncData(localSyncData: SyncData, remoteSyncData: SyncData): SyncData {
-        val mergedCategoriesList =
-            mergeCategoriesLists(localSyncData.backup?.backupCategories, remoteSyncData.backup?.backupCategories)
+        val mergedCategoriesList = mergeCategoriesLists(
+            localSyncData.backup?.backupCategories,
+            remoteSyncData.backup?.backupCategories,
+            // KMK -->
+            syncPreferences.syncedCategories().get(),
+            // KMK <--
+        )
 
         val mergedMangaList = mergeMangaLists(
             localSyncData.backup?.backupManga,
@@ -274,38 +279,43 @@ abstract class SyncService(
     private fun mergeCategoriesLists(
         localCategoriesList: List<BackupCategory>?,
         remoteCategoriesList: List<BackupCategory>?,
+        // KMK -->
+        syncedNames: Set<String> = emptySet(),
+        // KMK <--
     ): List<BackupCategory> {
         if (localCategoriesList == null) return remoteCategoriesList ?: emptyList()
         if (remoteCategoriesList == null) return localCategoriesList
-        val localCategoriesMap = localCategoriesList.associateBy { it.name }
-        val remoteCategoriesMap = remoteCategoriesList.associateBy { it.name }
 
-        val mergedCategoriesMap = mutableMapOf<String, BackupCategory>()
+        // KMK -->
+        // Three-way merge by name against the names of the last successful sync: a name that was synced before
+        // and is missing on one side was deleted (or renamed) there, so it is dropped instead of coming back.
+        // Orders are renumbered so every category has its own order (manga link to categories by order).
+        val local = localCategoriesList.sortedBy { it.order }
+        val remote = remoteCategoriesList.sortedBy { it.order }
+        val localNames = local.map { it.name }.toSet()
+        val remoteNames = remote.map { it.name }.toSet()
+        val canDetectDeletes = syncedNames.isNotEmpty() && local.isNotEmpty() && remote.isNotEmpty()
 
-        localCategoriesMap.forEach { (name, localCategory) ->
-            val remoteCategory = remoteCategoriesMap[name]
-            if (remoteCategory != null) {
-                // Compare and merge local and remote categories
-                val mergedCategory = if (localCategory.order > remoteCategory.order) {
-                    localCategory
-                } else {
-                    remoteCategory
-                }
-                mergedCategoriesMap[name] = mergedCategory
-            } else {
-                // If the category is only in the local list, add it to the merged list
-                mergedCategoriesMap[name] = localCategory
-            }
+        val merged = mutableListOf<BackupCategory>()
+        local.forEach { category ->
+            val deletedRemotely = canDetectDeletes && category.name in syncedNames && category.name !in remoteNames
+            if (!deletedRemotely) merged.add(category)
         }
-
-        // Add any categories from the remote list that are not in the local list
-        remoteCategoriesMap.forEach { (name, remoteCategory) ->
-            if (!mergedCategoriesMap.containsKey(name)) {
-                mergedCategoriesMap[name] = remoteCategory
-            }
+        remote.forEach { category ->
+            if (category.name in localNames) return@forEach
+            val deletedLocally = canDetectDeletes && category.name in syncedNames
+            if (!deletedLocally) merged.add(category)
         }
-
-        return mergedCategoriesMap.values.toList()
+        return merged.distinctBy { it.name }.mapIndexed { index, category ->
+            BackupCategory(
+                name = category.name,
+                order = index.toLong(),
+                id = category.id,
+                flags = category.flags,
+                hidden = category.hidden,
+            )
+        }
+        // KMK <--
     }
 
     private fun mergeSourcesLists(

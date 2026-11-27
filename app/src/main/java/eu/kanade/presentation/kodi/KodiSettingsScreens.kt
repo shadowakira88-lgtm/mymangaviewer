@@ -1,8 +1,5 @@
 package eu.kanade.presentation.kodi
 
-import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -172,10 +169,22 @@ fun KodiListPage(
         ) {
             itemsIndexed(items) { index, item ->
                 var hasFocus by remember { mutableStateOf(false) }
+                // KMK -->
+                val requester = if (index == 0) first else remember { FocusRequester() }
+                // Rows with a preview: the first touch only highlights (shows the preview), the second confirms.
+                val press = {
+                    if (item.preview != null && focused != index) {
+                        focused = index
+                        runCatching { requester.requestFocus() }
+                    } else {
+                        item.onClick()
+                    }
+                }
+                // KMK <--
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .then(if (index == 0) Modifier.focusRequester(first) else Modifier)
+                        .focusRequester(requester)
                         .onFocusChanged {
                             hasFocus = it.isFocused
                             if (it.isFocused) {
@@ -191,7 +200,7 @@ fun KodiListPage(
                             if (event.type != KeyEventType.KeyUp) {
                                 false
                             } else if (event.key == Key.ButtonA) {
-                                item.onClick()
+                                press()
                                 true
                             } else if (event.key == Key.ButtonY && item.onLongClick != null) {
                                 item.onLongClick.invoke()
@@ -200,7 +209,7 @@ fun KodiListPage(
                                 false
                             }
                         }
-                        .combinedClickable(onClick = item.onClick, onLongClick = item.onLongClick)
+                        .combinedClickable(onClick = press, onLongClick = item.onLongClick)
                         .padding(horizontal = 14.dp, vertical = 12.dp),
                 ) {
                     Text(
@@ -366,17 +375,6 @@ object SystemSettingsScreen : Screen() {
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
-        val okText = stringResource(KMR.strings.wallpaper_set_ok)
-        val failText = stringResource(KMR.strings.wallpaper_set_failed)
-        val pickWallpaper = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-            if (uri != null) {
-                Toast.makeText(
-                    context,
-                    if (KodiWallpaper.set(context, uri)) okText else failText,
-                    Toast.LENGTH_SHORT,
-                ).show()
-            }
-        }
         KodiListPage(
             title = stringResource(KMR.strings.system_settings),
             items = listOf(
@@ -392,7 +390,7 @@ object SystemSettingsScreen : Screen() {
                 KodiListItem(
                     stringResource(KMR.strings.wallpaper_setting),
                     stringResource(KMR.strings.wallpaper_setting_summary),
-                ) { pickWallpaper.launch("image/*") },
+                ) { navigator.push(KodiWallpaperChooserScreen(null, "manga wallpaper")) },
                 KodiListItem(
                     stringResource(KMR.strings.wallpaper_reset),
                     stringResource(KMR.strings.wallpaper_reset_summary),

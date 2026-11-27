@@ -71,7 +71,7 @@ fun KodiLibraryMenu(
                     onDismiss()
                 },
                 KodiListItem(stringResource(KMR.strings.wallpaper_reset)) {
-                    eu.kanade.presentation.kodi.KodiWallpaper.clear(context)
+                    eu.kanade.presentation.kodi.KodiWallpaper.clearForManga(context, manga.id)
                     onDismiss()
                 },
                 KodiListItem(stringResource(MR.strings.action_cancel)) { step = MangaStep.MAIN },

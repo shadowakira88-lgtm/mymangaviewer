@@ -96,15 +96,17 @@ fun KodiMangaScreen(
             .fillMaxSize()
             .background(Color.Black),
     ) {
-        AsyncImage(
-            model = cover,
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .fillMaxSize()
-                .blur(24.dp)
-                .alpha(0.28f),
-        )
+        eu.kanade.presentation.kodi.KodiMangaBackdrop(manga.id) {
+            AsyncImage(
+                model = cover,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .blur(24.dp)
+                    .alpha(0.28f),
+            )
+        }
 
         Row(
             modifier = Modifier

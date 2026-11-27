@@ -182,10 +182,15 @@ data object LibraryTab : Tab {
                             kodiMenuCategory?.let { screenModel.toggleRangeSelection(it, entry) }
                         },
                         onWallpaperFromPhone = {
-                            navigator.push(eu.kanade.presentation.kodi.KodiWallpaperFolderScreen())
+                            navigator.push(eu.kanade.presentation.kodi.KodiWallpaperFolderScreen(entry.manga.id))
                         },
                         onWallpaperFromWeb = {
-                            navigator.push(eu.kanade.presentation.kodi.KodiWallpaperWebScreen(entry.manga.title))
+                            navigator.push(
+                                eu.kanade.presentation.kodi.KodiWallpaperWebScreen(
+                                    entry.manga.id,
+                                    "${entry.manga.title} wallpaper",
+                                ),
+                            )
                         },
                         onDismiss = { kodiMenuManga = null },
                     )

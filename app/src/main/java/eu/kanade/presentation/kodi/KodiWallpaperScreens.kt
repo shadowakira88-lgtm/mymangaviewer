@@ -51,7 +51,7 @@ private fun hasStorageAccess(context: android.content.Context): Boolean = if (Bu
  * File explorer for choosing a wallpaper from the phone, driven with the D-pad: folders first, then pictures
  * (the highlighted picture is previewed on the left). Press a folder to open it, back to go up.
  */
-class KodiWallpaperFolderScreen(private val path: String? = null) : Screen() {
+class KodiWallpaperFolderScreen(private val mangaId: Long?, private val path: String? = null) : Screen() {
 
     @Composable
     override fun Content() {
@@ -76,11 +76,11 @@ class KodiWallpaperFolderScreen(private val path: String? = null) : Screen() {
         val items = entries.map { file ->
             if (file.isDirectory) {
                 KodiListItem(title = "📁 ${file.name}") {
-                    navigator.push(KodiWallpaperFolderScreen(file.absolutePath))
+                    navigator.push(KodiWallpaperFolderScreen(mangaId, file.absolutePath))
                 }
             } else {
                 KodiListItem(title = file.name, subtitle = "${file.length() / 1024} KB", preview = file) {
-                    val ok = KodiWallpaper.set(context, Uri.fromFile(file))
+                    val ok = KodiWallpaper.apply(context, mangaId, Uri.fromFile(file))
                     Toast.makeText(context, if (ok) okText else failText, Toast.LENGTH_SHORT).show()
                     if (ok) navigator.popUntilRoot()
                 }
@@ -91,7 +91,9 @@ class KodiWallpaperFolderScreen(private val path: String? = null) : Screen() {
             .map { File(root, it) }
             .filter { it.isDirectory && it != dir }
             .map { folder ->
-                KodiListItem("📁 ${folder.name}") { navigator.push(KodiWallpaperFolderScreen(folder.absolutePath)) }
+                KodiListItem("📁 ${folder.name}") {
+                    navigator.push(KodiWallpaperFolderScreen(mangaId, folder.absolutePath))
+                }
             }
         val actions = buildList {
             if (!access) {
@@ -169,14 +171,14 @@ private object BingImages {
  * Wallpaper search on the web using the manga title. Only big wide pictures (wallpaper size) are listed; the
  * highlighted result is previewed on the left. Press one to download and use it.
  */
-class KodiWallpaperWebScreen(private val title: String) : Screen() {
+class KodiWallpaperWebScreen(private val mangaId: Long?, private val initialQuery: String) : Screen() {
 
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
-        var query by remember { mutableStateOf("$title wallpaper") }
+        var query by remember { mutableStateOf(initialQuery) }
         var editing by remember { mutableStateOf(false) }
         var busy by remember { mutableStateOf(false) }
         val okText = stringResource(KMR.strings.wallpaper_set_ok)
@@ -223,7 +225,7 @@ class KodiWallpaperWebScreen(private val title: String) : Screen() {
                         when {
                             bounds.outWidth <= 0 -> failText
                             bounds.outWidth < 1000 -> smallText
-                            KodiWallpaper.set(context, Uri.fromFile(temp)) -> okText
+                            KodiWallpaper.apply(context, mangaId, Uri.fromFile(temp)) -> okText
                             else -> failText
                         }
                     }.getOrDefault(failText)
@@ -254,6 +256,34 @@ class KodiWallpaperWebScreen(private val title: String) : Screen() {
             },
             headerActions = listOf(
                 KodiListItem(stringResource(KMR.strings.wallpaper_search_change)) { editing = true },
+            ),
+        )
+    }
+}
+/** Wallpaper chooser (same menu for one manga or the whole app): from phone, from web, reset. */
+class KodiWallpaperChooserScreen(private val mangaId: Long?, private val query: String) : Screen() {
+
+    @Composable
+    override fun Content() {
+        val navigator = LocalNavigator.currentOrThrow
+        val context = LocalContext.current
+        KodiListPage(
+            title = stringResource(KMR.strings.menu_change_wallpaper),
+            items = listOf(
+                KodiListItem(stringResource(KMR.strings.wallpaper_from_phone)) {
+                    navigator.push(KodiWallpaperFolderScreen(mangaId))
+                },
+                KodiListItem(stringResource(KMR.strings.wallpaper_from_web)) {
+                    navigator.push(KodiWallpaperWebScreen(mangaId, query))
+                },
+                KodiListItem(stringResource(KMR.strings.wallpaper_reset)) {
+                    if (mangaId == null) {
+                        KodiWallpaper.clear(context)
+                    } else {
+                        KodiWallpaper.clearForManga(context, mangaId)
+                    }
+                    navigator.pop()
+                },
             ),
         )
     }

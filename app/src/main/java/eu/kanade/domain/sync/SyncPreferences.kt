@@ -14,6 +14,11 @@ class SyncPreferences(
     fun clientAPIKey() = preferenceStore.getString("connection_sync_client_api_key", "")
     fun lastSyncTimestamp() = preferenceStore.getLong(Preference.appStateKey("last_sync_timestamp"), 0L)
 
+    // KMK -->
+    /** Names of the categories (groups) as they were after the last successful sync; used to detect deletes/renames. */
+    fun syncedCategories() = preferenceStore.getStringSet(Preference.appStateKey("sync_synced_categories"), emptySet())
+    // KMK <--
+
     fun lastSyncEtag() = preferenceStore.getString("sync_etag", "")
 
     fun syncInterval() = preferenceStore.getInt("sync_interval", 0)
