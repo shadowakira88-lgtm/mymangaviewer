@@ -25,6 +25,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -123,28 +125,75 @@ class KodiWallpaperFolderScreen(private val mangaId: Long?, private val path: St
     }
 }
 
-private data class WebImage(val thumb: String, val full: String, val title: String)
+private data class WebImage(
+    val thumb: String,
+    val full: String,
+    val title: String,
+    val width: Int = 0,
+    val height: Int = 0,
+)
 
-private object BingImages {
-    private val metaRegex = Regex("""\sm="(\{[^"]+\})"""")
+private object ImageSearch {
+    private const val UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) " +
+        "Chrome/124.0 Safari/537.36"
+    private val bingMeta = Regex("""\sm="(\{[^"]+\})"""")
+    private val vqdRegex = Regex("""vqd=["']?([\d-]+)""")
 
-    private fun fetch(query: String, filter: String): List<WebImage> {
-        val url = "https://www.bing.com/images/search".toHttpUrl().newBuilder()
-            .addQueryParameter("q", query)
-            .addEncodedQueryParameter("qft", filter)
-            .addQueryParameter("form", "IRFLTR")
-            .addQueryParameter("first", "1")
+    private fun get(url: okhttp3.HttpUrl, referer: String? = null): String {
+        val request = Request.Builder().url(url).header("User-Agent", UA).header("Accept-Language", "en-US,en;q=0.9")
+            .apply { if (referer != null) header("Referer", referer) }
             .build()
-        val request = Request.Builder()
-            .url(url)
-            .header(
-                "User-Agent",
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) " +
-                    "Chrome/124.0 Safari/537.36",
-            )
-            .build()
-        val html = Injekt.get<NetworkHelper>().client.newCall(request).execute().use { it.body.string() }
-        return metaRegex.findAll(html).mapNotNull { match ->
+        return Injekt.get<NetworkHelper>().client.newCall(request).execute().use { it.body.string() }
+    }
+
+    /** DuckDuckGo images: JSON with the real size of every picture, so wide big ones can be picked. */
+    private fun duckDuckGo(query: String): List<WebImage> {
+        val page = get(
+            "https://duckduckgo.com/".toHttpUrl().newBuilder()
+                .addQueryParameter("q", query)
+                .addQueryParameter("iax", "images")
+                .addQueryParameter("ia", "images")
+                .build(),
+        )
+        val vqd = vqdRegex.find(page)?.groupValues?.get(1) ?: return emptyList()
+        val body = get(
+            "https://duckduckgo.com/i.js".toHttpUrl().newBuilder()
+                .addQueryParameter("l", "us-en")
+                .addQueryParameter("o", "json")
+                .addQueryParameter("q", query)
+                .addQueryParameter("vqd", vqd)
+                .addQueryParameter("f", ",,,,,")
+                .addQueryParameter("p", "1")
+                .build(),
+            referer = "https://duckduckgo.com/",
+        )
+        val results = Json.parseToJsonElement(body).jsonObject["results"]?.jsonArray ?: return emptyList()
+        return results.mapNotNull { element ->
+            runCatching {
+                val obj = element.jsonObject
+                WebImage(
+                    thumb = obj["thumbnail"]!!.jsonPrimitive.content,
+                    full = obj["image"]!!.jsonPrimitive.content,
+                    title = obj["title"]?.jsonPrimitive?.content.orEmpty(),
+                    width = obj["width"]?.jsonPrimitive?.intOrNull ?: 0,
+                    height = obj["height"]?.jsonPrimitive?.intOrNull ?: 0,
+                )
+            }.getOrNull()
+        }
+    }
+
+    /** Bing images (async endpoint, results only - no landing page). */
+    private fun bing(query: String): List<WebImage> {
+        val html = get(
+            "https://www.bing.com/images/async".toHttpUrl().newBuilder()
+                .addQueryParameter("q", query)
+                .addEncodedQueryParameter("qft", "+filterui:imagesize-large+filterui:aspect-wide")
+                .addQueryParameter("first", "0")
+                .addQueryParameter("count", "35")
+                .addQueryParameter("mmasync", "1")
+                .build(),
+        )
+        return bingMeta.findAll(html).mapNotNull { match ->
             runCatching {
                 val json = match.groupValues[1]
                     .replace("&quot;", "\"")
@@ -157,13 +206,20 @@ private object BingImages {
                     title = obj["t"]?.jsonPrimitive?.content.orEmpty(),
                 )
             }.getOrNull()
-        }.distinctBy { it.full }.take(40).toList()
+        }.toList()
     }
 
-    /** Wallpaper-sized wide pictures first; falls back to any large picture when there are too few. */
+    /** Big wide pictures (wallpaper shaped) first; relaxes the size when there are too few. */
     fun search(query: String): List<WebImage> {
-        val wallpaper = fetch(query, "+filterui:imagesize-wallpaper+filterui:aspect-wide")
-        return if (wallpaper.size >= 5) wallpaper else wallpaper + fetch(query, "+filterui:imagesize-large")
+        val ddg = runCatching { duckDuckGo(query) }.getOrDefault(emptyList())
+        val wide = ddg.filter { it.width >= 1280 && it.width >= it.height * 1.3 }
+        val relaxed = ddg.filter { it.width >= 800 && it.width > it.height }
+        val picked = when {
+            wide.size >= 5 -> wide
+            relaxed.size >= 5 -> wide + relaxed
+            else -> wide + relaxed + runCatching { bing(query) }.getOrDefault(emptyList()) + ddg
+        }
+        return picked.distinctBy { it.full }.take(40)
     }
 }
 
@@ -201,7 +257,7 @@ class KodiWallpaperWebScreen(private val mangaId: Long?, private val initialQuer
 
         val results by produceState<List<WebImage>?>(initialValue = null, query) {
             value = null
-            value = withContext(Dispatchers.IO) { runCatching { BingImages.search(query) }.getOrDefault(emptyList()) }
+            value = withContext(Dispatchers.IO) { runCatching { ImageSearch.search(query) }.getOrDefault(emptyList()) }
         }
 
         fun use(image: WebImage) {
@@ -239,7 +295,10 @@ class KodiWallpaperWebScreen(private val mangaId: Long?, private val initialQuer
         val items = results.orEmpty().mapIndexed { index, image ->
             KodiListItem(
                 title = "${index + 1}. ${image.title.ifBlank { Uri.parse(image.full).host.orEmpty() }}",
-                subtitle = Uri.parse(image.full).host,
+                subtitle = listOfNotNull(
+                    "${image.width}×${image.height}".takeIf { image.width > 0 },
+                    Uri.parse(image.full).host,
+                ).joinToString(" · "),
                 preview = image.thumb,
             ) { use(image) }
         }

@@ -180,6 +180,7 @@ fun KodiListPage(
                         item.onClick()
                     }
                 }
+                val shown = hasFocus || (item.preview != null && focused == index)
                 // KMK <--
                 Column(
                     modifier = Modifier
@@ -193,7 +194,7 @@ fun KodiListPage(
                             }
                         }
                         .border(
-                            BorderStroke(1.5.dp, if (hasFocus) KodiLine else Color.Transparent),
+                            BorderStroke(1.5.dp, if (shown) KodiLine else Color.Transparent),
                             RoundedCornerShape(3.dp),
                         )
                         .onKeyEvent { event ->
@@ -214,7 +215,7 @@ fun KodiListPage(
                 ) {
                     Text(
                         item.title,
-                        color = if (hasFocus) KodiBlue else Color.White,
+                        color = if (shown) KodiBlue else Color.White,
                         fontSize = 15.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,

@@ -251,6 +251,7 @@ internal fun KodiLibraryList(
                             // KMK -->
                             source = sourceManager.getOrStub(item.libraryManga.manga.source).name,
                             groups = groupsOf(item.libraryManga),
+                            isHighlighted = item.id == focusedId,
                             requester = if (item.id == initialId) {
                                 initialFocus
                             } else {
@@ -282,6 +283,7 @@ private fun KodiRow(
     source: String? = null,
     groups: String? = null,
     requester: FocusRequester? = null,
+    isHighlighted: Boolean = false,
     // KMK <--
     badge: String?,
     isSelected: Boolean,
@@ -296,12 +298,14 @@ private fun KodiRow(
     // KMK -->
     // With a requester the first touch only highlights the row, the second one opens it.
     val tap: () -> Unit = {
-        if (requester != null && !hasFocus) {
+        if (requester != null && !isHighlighted) {
+            onFocused()
             runCatching { requester.requestFocus() }
         } else {
             onClick()
         }
     }
+    val active = if (requester != null) isHighlighted else hasFocus
     // KMK <--
 
     Row(
@@ -315,7 +319,7 @@ private fun KodiRow(
                 if (it.isFocused) onFocused()
             }
             .border(
-                border = if (hasFocus) {
+                border = if (active) {
                     BorderStroke(1.5.dp, KodiBorder)
                 } else {
                     BorderStroke(1.5.dp, Color.Transparent)
@@ -357,11 +361,11 @@ private fun KodiRow(
                 text = title,
                 color = when {
                     isSelected -> Color(0xFFFFC857)
-                    hasFocus -> KodiFocusBlue
+                    active -> KodiFocusBlue
                     else -> Color.White
                 },
                 fontSize = 14.sp,
-                fontWeight = if (hasFocus) FontWeight.Medium else FontWeight.Normal,
+                fontWeight = if (active) FontWeight.Medium else FontWeight.Normal,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
