@@ -295,8 +295,7 @@ object KodiSourcesScreen : Screen() {
                             )
                             add(
                                 KodiListItem(stringResource(KMR.strings.menu_source_blank)) {
-                                    val blank = sourcePrefs.disabledSources()
-                                    blank.set(blank.get() + source.id.toString())
+                                    blankSourceAndUninstall(source.id)
                                     menuSource = null
                                 },
                             )

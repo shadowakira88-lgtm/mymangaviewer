@@ -127,6 +127,18 @@ fun KodiAlertDialog(
     }
 }
 
+/** Draws [content] as a full-window popup layer (registered on the window's dialog host). */
+@Composable
+fun KodiPopupLayer(content: @Composable () -> Unit) {
+    val host = LocalKodiDialogHost.current ?: return
+    val latest = rememberUpdatedState(content)
+    val entry = remember { KodiDialogHostState.Entry(latest) }
+    DisposableEffect(host) {
+        host.entries.add(entry)
+        onDispose { host.entries.remove(entry) }
+    }
+}
+
 @Composable
 private fun KodiAlertPanel(
     onDismissRequest: () -> Unit,

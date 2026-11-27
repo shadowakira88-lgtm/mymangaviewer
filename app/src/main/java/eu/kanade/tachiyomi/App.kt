@@ -248,7 +248,7 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
             .distinctUntilChanged()
             .drop(1)
             .debounce(15_000)
-            .onEach { if (isSupabaseAutoSync()) SyncDataJob.startNow(this@App) }
+            .onEach { if (isSupabaseAutoSync()) SyncDataJob.startNow(this@App, pull = false) }
             .launchIn(scope)
         // KMK <--
 
@@ -256,6 +256,8 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
     }
 
     // KMK -->
+    private var supabasePulled = false
+
     private fun isSupabaseAutoSync(): Boolean {
         val syncPreferences: SyncPreferences = Injekt.get()
         val supabase = eu.kanade.tachiyomi.data.sync.SyncManager.SyncService.SUPABASE.value
@@ -337,8 +339,11 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
             SyncDataJob.startNow(this@App)
         }
         // KMK -->
-        // Supabase: always pull the other phone's changes when the app opens or comes back.
-        if (isSupabaseAutoSync()) SyncDataJob.startNow(this@App)
+        // Supabase: download the other phone's changes only once, when the app opens; afterwards only push.
+        if (isSupabaseAutoSync()) {
+            SyncDataJob.startNow(this@App, pull = !supabasePulled)
+            supabasePulled = true
+        }
         // KMK <--
 
         // AM (DISCORD) -->
@@ -348,6 +353,10 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
 
     override fun onStop(owner: LifecycleOwner) {
         SecureActivityDelegate.onApplicationStopped()
+        // KMK -->
+        // Leaving the app: push whatever changed (settings, wallpapers, ...); this is cheap when nothing changed.
+        if (isSupabaseAutoSync() && supabasePulled) SyncDataJob.startNow(this@App, pull = false)
+        // KMK <--
 
         // AM (DISCORD) -->
         DiscordRPCService.stop(applicationContext)

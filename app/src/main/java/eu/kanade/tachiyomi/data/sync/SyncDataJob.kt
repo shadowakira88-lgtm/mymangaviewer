@@ -53,7 +53,7 @@ class SyncDataJob(private val context: Context, workerParams: WorkerParameters) 
         setForegroundSafely()
 
         return try {
-            SyncManager(context).syncData()
+            SyncManager(context).syncData(pull = inputData.getBoolean(KEY_PULL, true))
             Result.success()
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e)
@@ -108,7 +108,11 @@ class SyncDataJob(private val context: Context, workerParams: WorkerParameters) 
             }
         }
 
-        fun startNow(context: Context, manual: Boolean = false) {
+        // KMK -->
+        private const val KEY_PULL = "pull"
+        // KMK <--
+
+        fun startNow(context: Context, manual: Boolean = false, /* KMK --> */ pull: Boolean = true /* KMK <-- */) {
             val wm = context.workManager
             if (wm.isRunning(TAG_JOB)) {
                 // Already running either as a scheduled or manual job
@@ -118,6 +122,9 @@ class SyncDataJob(private val context: Context, workerParams: WorkerParameters) 
             val request = OneTimeWorkRequestBuilder<SyncDataJob>()
                 .addTag(TAG_JOB)
                 .addTag(tag)
+                // KMK -->
+                .setInputData(androidx.work.workDataOf(KEY_PULL to pull))
+                // KMK <--
                 .build()
             context.workManager.enqueueUniqueWork(tag, ExistingWorkPolicy.KEEP, request)
         }

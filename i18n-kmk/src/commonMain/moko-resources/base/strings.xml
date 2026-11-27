@@ -323,6 +323,10 @@
     <string name="kodi_menu_latest">Latest</string>
     <string name="latest_updates">Updates</string>
     <string name="latest_bookmarks">Bookmark</string>
+    <string name="latest_download">Download</string>
+    <string name="kodi_download_pause">Pause downloads</string>
+    <string name="kodi_download_start">Start downloads</string>
+    <string name="kodi_download_clear">Clear queue</string>
     <string name="kodi_empty_list">Nothing here yet</string>
     <string name="reader_bookmark">Bookmark</string>
     <string name="onboarding_login_skip_hint">Sign-in is optional. Press Finish to skip; you can do it later in System Settings.</string>

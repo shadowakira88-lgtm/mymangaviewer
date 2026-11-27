@@ -415,6 +415,20 @@ object KodiMissingSourcesScreen : Screen() {
     }
 }
 /**
+ * Puts [sourceId] on the blank list and uninstalls its extension once every source of that extension is blank, so
+ * it also disappears from the extension list.
+ */
+fun blankSourceAndUninstall(sourceId: Long) {
+    val prefs = Injekt.get<SourcePreferences>()
+    val blank = prefs.disabledSources()
+    blank.set(blank.get() + sourceId.toString())
+    val manager = Injekt.get<ExtensionManager>()
+    val ext = manager.installedExtensionsFlow.value.find { e -> e.sources.any { it.id == sourceId } } ?: return
+    val blankNow = blank.get()
+    if (ext.sources.all { it.id.toString() in blankNow }) manager.uninstallExtension(ext)
+}
+
+/**
  * Sources put on the blank list: hidden from Sources (and search) until they are added back here.
  */
 object KodiBlankSourcesScreen : Screen() {
@@ -426,12 +440,10 @@ object KodiBlankSourcesScreen : Screen() {
         val sourceManager = remember { Injekt.get<SourceManager>() }
         val prefs = remember { Injekt.get<SourcePreferences>() }
         val blankIds by prefs.disabledSources().changes().collectAsState(prefs.disabledSources().get())
-        val all by produceState(initialValue = emptyList<eu.kanade.tachiyomi.source.Source>()) {
-            sourceManager.sources.collectLatest { value = it }
-        }
         var menuSource by remember { mutableStateOf<eu.kanade.tachiyomi.source.Source?>(null) }
-        val sources = all
-            .filter { it.id.toString() in blankIds }
+        // Uninstalled extensions are no longer loaded, so names come from stubs.
+        val sources = blankIds.mapNotNull { it.toLongOrNull() }
+            .map { sourceManager.getOrStub(it) }
             .sortedWith(compareBy({ it.lang }, { it.name.lowercase() }))
         val summary = stringResource(KMR.strings.kodi_blank_summary)
         KodiMenuHost(

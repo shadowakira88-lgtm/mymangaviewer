@@ -9,7 +9,9 @@ import eu.kanade.tachiyomi.data.backup.models.Backup
 import eu.kanade.tachiyomi.data.backup.models.BackupCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupChapter
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
+import eu.kanade.tachiyomi.data.backup.BackupNotifier
 import eu.kanade.tachiyomi.data.backup.restore.BackupRestoreJob
+import eu.kanade.tachiyomi.data.backup.restore.BackupRestorer
 import eu.kanade.tachiyomi.data.backup.restore.RestoreOptions
 import eu.kanade.tachiyomi.data.backup.restore.restorers.MangaRestorer
 import eu.kanade.tachiyomi.data.sync.service.GoogleDriveSyncService
@@ -79,12 +81,21 @@ class SyncManager(
      * This function retrieves local data (favorites, manga, extensions, and categories)
      * from the database using the BackupManager, then synchronizes the data with a sync service.
      */
-    suspend fun syncData() {
+    suspend fun syncData(pull: Boolean = true) {
         // Reset isSyncing in case it was left over or failed syncing during restore.
         handler.await(inTransaction = true) {
             mangasQueries.resetIsSyncing()
             chaptersQueries.resetIsSyncing()
         }
+
+        // KMK -->
+        // Supabase: incremental sync (pull once when the app opens, afterwards only push what changed).
+        if (SyncService.fromInt(syncPreferences.syncService().get()) == SyncService.SUPABASE) {
+            SupabaseDeltaSync(context, this).run(pull)
+            if (pull) notifier.showSyncSuccess("Sync completed successfully")
+            return
+        }
+        // KMK <--
 
         val syncOptions = syncPreferences.getSyncSettings()
         val databaseManga = getAllMangaThatNeedsSync()
@@ -276,6 +287,43 @@ class SyncManager(
             getCategories.await().filter { !it.isSystemCategory }.map { it.name }.toSet()
         }
         syncPreferences.syncedCategories().set(names)
+    }
+    // KMK <--
+
+    // KMK -->
+    /** Restores the manga of [remote] that differ from the local ones (used by the incremental Supabase sync). */
+    suspend fun applyRemoteManga(remote: Backup) {
+        val (favorites, nonFavorites) = filterFavoritesAndNonFavorites(remote)
+        updateNonFavorites(nonFavorites)
+        if (favorites.isEmpty()) return
+        val uri = writeSyncDataToCache(context, remote.copy(backupManga = favorites)) ?: return
+        BackupRestorer(context, BackupNotifier(context), true).restore(
+            uri,
+            RestoreOptions(
+                libraryEntries = true,
+                categories = false,
+                appSettings = false,
+                extensionStores = false,
+                sourceSettings = false,
+                savedSearchesFeeds = false,
+            ),
+        )
+    }
+
+    /** Restores app settings, source settings, extension repos, saved searches and feeds from [remote]. */
+    suspend fun applyRemotePrefs(remote: Backup) {
+        val uri = writeSyncDataToCache(context, remote) ?: return
+        BackupRestorer(context, BackupNotifier(context), true).restore(
+            uri,
+            RestoreOptions(
+                libraryEntries = false,
+                categories = false,
+                appSettings = true,
+                extensionStores = true,
+                sourceSettings = true,
+                savedSearchesFeeds = true,
+            ),
+        )
     }
     // KMK <--
 

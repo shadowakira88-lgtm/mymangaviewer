@@ -43,6 +43,7 @@ import eu.kanade.core.preference.asState
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.kodi.KodiBookmarksScreen
+import eu.kanade.presentation.kodi.KodiDownloadScreen
 import eu.kanade.presentation.kodi.KodiExtensionsScreen
 import eu.kanade.presentation.kodi.KodiHistoryScreen
 import eu.kanade.presentation.kodi.KodiHome
@@ -333,6 +334,9 @@ object HomeScreen : Screen() {
                     },
                     KodiMenuAction(stringResource(KMR.strings.latest_bookmarks)) {
                         navigator.push(KodiBookmarksScreen)
+                    },
+                    KodiMenuAction(stringResource(KMR.strings.latest_download)) {
+                        navigator.push(KodiDownloadScreen)
                     },
                 ),
             ),

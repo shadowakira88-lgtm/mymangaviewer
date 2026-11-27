@@ -43,6 +43,12 @@ object KodiWallpaper {
         Injekt.get<UiPreferences>().kodiWallpaperVersion().set(0L)
     }
 
+    /** Called after a wallpaper file was replaced by sync, so screens reload it. */
+    fun notifyChanged() {
+        mangaTick++
+        Injekt.get<UiPreferences>().kodiWallpaperVersion().set(System.currentTimeMillis())
+    }
+
     /** Bumped whenever a manga wallpaper changes so the screens that show it redraw. */
     var mangaTick by mutableIntStateOf(0)
         private set
