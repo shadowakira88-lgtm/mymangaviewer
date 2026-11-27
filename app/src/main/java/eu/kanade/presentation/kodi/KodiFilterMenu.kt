@@ -98,6 +98,65 @@ fun KodiFilterMenu(
     )
 }
 
+/**
+ * Quick "Status" options (All / Ongoing / Completed ...) taken from the filters the source offers. Empty when the
+ * source has no status filter. [onChanged] runs after a filter was changed and should start the search.
+ */
+fun kodiStatusOptions(filters: FilterList, allLabel: String, onChanged: () -> Unit): List<Pair<String, () -> Unit>> {
+    fun isStatus(name: String) = listOf("status", "completed", "ongoing").any { name.contains(it, ignoreCase = true) }
+    val selects = mutableListOf<Filter.Select<*>>()
+    val singles = mutableListOf<Filter<*>>()
+    fun scan(list: List<Filter<*>>) {
+        list.forEach { filter ->
+            when {
+                filter is Filter.Group<*> ->
+                    if (isStatus(filter.name)) singles.addAll(filter.state.filterIsInstance<Filter<*>>()) else {
+                        scan(filter.state.filterIsInstance<Filter<*>>())
+                    }
+                filter is Filter.Select<*> && isStatus(filter.name) -> selects.add(filter)
+                (filter is Filter.CheckBox || filter is Filter.TriState) && isStatus(filter.name) -> singles.add(filter)
+            }
+        }
+    }
+    scan(filters.list)
+    if (selects.isEmpty() && singles.isEmpty()) return emptyList()
+
+    fun reset() {
+        selects.forEach { it.state = 0 }
+        singles.forEach {
+            when (it) {
+                is Filter.CheckBox -> it.state = false
+                is Filter.TriState -> it.state = Filter.TriState.STATE_IGNORE
+                else -> Unit
+            }
+        }
+    }
+    return buildList {
+        add(allLabel to { reset(); onChanged() })
+        selects.forEach { select ->
+            select.values.forEachIndexed { index, value ->
+                val label = value.toString()
+                if (label.lowercase() !in setOf("all", "any", "")) {
+                    add(label to { reset(); select.state = index; onChanged() })
+                }
+            }
+        }
+        singles.forEach { single ->
+            add(
+                single.name to {
+                    reset()
+                    when (single) {
+                        is Filter.CheckBox -> single.state = true
+                        is Filter.TriState -> single.state = Filter.TriState.STATE_INCLUDE
+                        else -> Unit
+                    }
+                    onChanged()
+                },
+            )
+        }
+    }
+}
+
 private fun flatten(list: List<Filter<*>>, prefix: String, out: MutableList<Pair<String, Filter<*>>>) {
     list.forEach { filter ->
         if (filter is Filter.Group<*>) {

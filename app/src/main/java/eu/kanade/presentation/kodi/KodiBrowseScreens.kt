@@ -359,10 +359,12 @@ fun KodiBrowseSourceList(
     onLatest: () -> Unit,
     onSearch: (String) -> Unit,
     onFilter: () -> Unit,
+    statusOptions: List<Pair<String, () -> Unit>>,
     onOpen: (tachiyomi.domain.manga.model.Manga) -> Unit,
     onMenu: (tachiyomi.domain.manga.model.Manga) -> Unit,
 ) {
     var typing by remember { mutableStateOf(false) }
+    var statusMenu by remember { mutableStateOf(false) }
     if (typing) {
         KodiKeyboardDialog(
             title = stringResource(KMR.strings.kodi_sources_search),
@@ -403,20 +405,39 @@ fun KodiBrowseSourceList(
     }
     val popularLabel = stringResource(MR.strings.popular)
     val latestLabel = stringResource(MR.strings.latest)
-    KodiListPage(
-        title = sourceName,
-        items = items,
-        onFocusItem = onTouch,
-        headerActions = buildList {
-            add(KodiListItem(if (popularSelected) "✓ $popularLabel" else popularLabel) { onPopular() })
-            if (supportsLatest) {
-                add(KodiListItem(if (latestSelected) "✓ $latestLabel" else latestLabel) { onLatest() })
-            }
-            add(KodiListItem(stringResource(KMR.strings.kodi_sources_search)) { typing = true })
-            if (filterable) {
-                add(KodiListItem(stringResource(MR.strings.action_filter)) { onFilter() })
-            }
+    KodiMenuHost(
+        active = statusMenu,
+        overlay = {
+            KodiContextMenu(
+                title = stringResource(KMR.strings.kodi_status_button),
+                onDismiss = { statusMenu = false },
+                items = statusOptions.map { (label, apply) ->
+                    KodiListItem(label) {
+                        statusMenu = false
+                        apply()
+                    }
+                } + KodiListItem(stringResource(MR.strings.action_cancel)) { statusMenu = false },
+            )
         },
-    )
+    ) {
+        KodiListPage(
+            title = sourceName,
+            items = items,
+            onFocusItem = onTouch,
+            headerActions = buildList {
+                add(KodiListItem(if (popularSelected) "✓ $popularLabel" else popularLabel) { onPopular() })
+                if (supportsLatest) {
+                    add(KodiListItem(if (latestSelected) "✓ $latestLabel" else latestLabel) { onLatest() })
+                }
+                add(KodiListItem(stringResource(KMR.strings.kodi_sources_search)) { typing = true })
+                if (filterable) {
+                    add(KodiListItem(stringResource(MR.strings.action_filter)) { onFilter() })
+                }
+                if (statusOptions.isNotEmpty()) {
+                    add(KodiListItem(stringResource(KMR.strings.kodi_status_button)) { statusMenu = true })
+                }
+            },
+        )
+    }
 }
 // KMK <--

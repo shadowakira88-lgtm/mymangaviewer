@@ -23,7 +23,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -49,6 +51,9 @@ import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.category.visualName
 import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.tachiyomi.ui.library.LibraryItem
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
+import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.manga.model.MangaCover as DomainMangaCover
@@ -60,6 +65,38 @@ import uy.kohesive.injekt.api.get
 
 // KMK -->
 private val KodiFocusBlue = Color(0xFF6CA9D9)
+private val KodiSourceText = Color(0xFFD5DBE1)
+private val KodiGroupText = Color(0xFF9FB3C6)
+
+private suspend fun kodiQueueDownload(manga: tachiyomi.domain.manga.model.Manga): Int =
+    eu.kanade.presentation.kodi.queueMangaDownload(manga)
+
+@Composable
+private fun KodiDownloadBox(text: String, onClick: () -> Unit) {
+    var hasFocus by remember { mutableStateOf(false) }
+    Text(
+        text = text,
+        color = if (hasFocus) KodiFocusBlue else Color.White,
+        fontSize = 12.sp,
+        modifier = Modifier
+            .padding(top = 8.dp)
+            .onFocusChanged { hasFocus = it.isFocused }
+            .border(
+                BorderStroke(1.dp, if (hasFocus) Color(0xFFE0E0E0) else Color(0xFF555555)),
+                RoundedCornerShape(3.dp),
+            )
+            .onKeyEvent { event ->
+                if (event.type == KeyEventType.KeyUp && event.key == Key.ButtonA) {
+                    onClick()
+                    true
+                } else {
+                    false
+                }
+            }
+            .combinedClickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+    )
+}
 private val KodiBorder = Color(0xFFE0E0E0)
 
 private fun LibraryManga.toCover() = DomainMangaCover(
@@ -94,6 +131,14 @@ internal fun KodiLibraryList(
     val initialId = remember { focused.id }
     // KMK -->
     val sourceManager = remember { uy.kohesive.injekt.Injekt.get<tachiyomi.domain.source.service.SourceManager>() }
+    val categoryNames by produceState(initialValue = emptyMap<Long, String>()) {
+        Injekt.get<GetCategories>().subscribe().collectLatest { all -> value = all.associate { it.id to it.name } }
+    }
+    fun groupsOf(item: LibraryManga) =
+        item.categories.mapNotNull { categoryNames[it] }.joinToString(", ").takeIf { it.isNotEmpty() }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
+    val queuedText = stringResource(KMR.strings.kodi_download_queued, 0)
     // KMK <--
 
     LaunchedEffect(requestFocus) {
@@ -154,10 +199,33 @@ internal fun KodiLibraryList(
                 // KMK -->
                 Text(
                     text = sourceManager.getOrStub(focused.libraryManga.manga.source).name,
-                    color = Color(0xFF8C8C8C),
-                    fontSize = 11.sp,
+                    color = KodiSourceText,
+                    fontSize = 12.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                )
+                groupsOf(focused.libraryManga)?.let {
+                    Text(
+                        text = it,
+                        color = KodiGroupText,
+                        fontSize = 11.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                KodiDownloadBox(
+                    text = stringResource(KMR.strings.kodi_download_manga),
+                    onClick = {
+                        val manga = focused.libraryManga.manga
+                        scope.launch {
+                            val count = kodiQueueDownload(manga)
+                            android.widget.Toast.makeText(
+                                context,
+                                queuedText.replaceFirst("0", count.toString()),
+                                android.widget.Toast.LENGTH_SHORT,
+                            ).show()
+                        }
+                    },
                 )
                 // KMK <--
             }
@@ -182,14 +250,16 @@ internal fun KodiLibraryList(
                             title = item.libraryManga.manga.title,
                             // KMK -->
                             source = sourceManager.getOrStub(item.libraryManga.manga.source).name,
+                            groups = groupsOf(item.libraryManga),
+                            requester = if (item.id == initialId) {
+                                initialFocus
+                            } else {
+                                remember(item.id) { FocusRequester() }
+                            },
                             // KMK <--
                             badge = item.unreadCount.takeIf { it > 0 }?.toString(),
                             isSelected = item.id in selection,
-                            modifier = if (item.id == initialId) {
-                                Modifier.focusRequester(initialFocus)
-                            } else {
-                                Modifier
-                            },
+                            modifier = Modifier,
                             onFocused = { focusedId = item.id },
                             onClick = { onClick(item.libraryManga) },
                             onLongClick = { onLongClick(item.libraryManga) },
@@ -210,6 +280,8 @@ private fun KodiRow(
     title: String,
     // KMK -->
     source: String? = null,
+    groups: String? = null,
+    requester: FocusRequester? = null,
     // KMK <--
     badge: String?,
     isSelected: Boolean,
@@ -221,10 +293,23 @@ private fun KodiRow(
 ) {
     var hasFocus by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(3.dp)
+    // KMK -->
+    // With a requester the first touch only highlights the row, the second one opens it.
+    val tap: () -> Unit = {
+        if (requester != null && !hasFocus) {
+            runCatching { requester.requestFocus() }
+        } else {
+            onClick()
+        }
+    }
+    // KMK <--
 
     Row(
         modifier = modifier
             .fillMaxWidth()
+            // KMK -->
+            .then(if (requester != null) Modifier.focusRequester(requester) else Modifier)
+            // KMK <--
             .onFocusChanged {
                 hasFocus = it.isFocused
                 if (it.isFocused) onFocused()
@@ -258,7 +343,7 @@ private fun KodiRow(
                 }
             }
             .combinedClickable(
-                onClick = onClick,
+                onClick = tap,
                 onLongClick = onLongClick,
             )
             .padding(horizontal = 14.dp, vertical = 9.dp),
@@ -284,7 +369,16 @@ private fun KodiRow(
             if (source != null) {
                 Text(
                     text = source,
-                    color = Color(0xFF8C8C8C),
+                    color = KodiSourceText,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            if (groups != null) {
+                Text(
+                    text = groups,
+                    color = KodiGroupText,
                     fontSize = 11.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

@@ -225,6 +225,8 @@ fun MangaScreen(
             onMigrateClicked = onMigrateClicked,
             onMultiBookmarkClicked = onMultiBookmarkClicked,
             onMultiMarkAsReadClicked = onMultiMarkAsReadClicked,
+            onMarkPreviousAsRead = onMarkPreviousAsReadClicked,
+            onDownloadChapter = onDownloadChapter,
             onRefresh = onRefresh,
         )
         return

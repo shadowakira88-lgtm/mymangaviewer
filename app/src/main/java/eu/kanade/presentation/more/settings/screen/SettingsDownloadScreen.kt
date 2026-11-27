@@ -51,6 +51,13 @@ object SettingsDownloadScreen : SearchableSettings {
                 preference = downloadPreferences.saveChaptersAsCBZ(),
                 title = stringResource(MR.strings.save_chapter_as_cbz),
             ),
+            // KMK -->
+            Preference.PreferenceItem.SwitchPreference(
+                preference = downloadPreferences.compressDownloads(),
+                title = stringResource(KMR.strings.pref_compress_downloads),
+                subtitle = stringResource(KMR.strings.pref_compress_downloads_summary),
+            ),
+            // KMK <--
             Preference.PreferenceItem.SwitchPreference(
                 preference = downloadPreferences.splitTallImages(),
                 title = stringResource(MR.strings.split_tall_images),

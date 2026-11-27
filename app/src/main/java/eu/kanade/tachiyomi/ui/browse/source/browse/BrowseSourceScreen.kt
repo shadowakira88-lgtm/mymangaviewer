@@ -247,6 +247,13 @@ data class BrowseSourceScreen(
                 },
                 onSearch = { screenModel.search(it) },
                 onFilter = screenModel::openFilterSheet,
+                statusOptions = eu.kanade.presentation.kodi.kodiStatusOptions(
+                    state.filters,
+                    stringResource(KMR.strings.kodi_status_all),
+                ) {
+                    screenModel.setFilters(state.filters)
+                    screenModel.search(filters = state.filters)
+                },
                 onOpen = { manga ->
                     navigator.push(
                         MangaScreen(

@@ -437,8 +437,12 @@ class Downloader(
                 download.source,
             )
 
+            // KMK -->
+            val compress = downloadPreferences.compressDownloads().get()
+            if (compress) compressPages(tmpDir)
+            // KMK <--
             // Only rename the directory if it's downloaded
-            if (downloadPreferences.saveChaptersAsCBZ().get()) {
+            if (compress || downloadPreferences.saveChaptersAsCBZ().get()) {
                 archiveChapter(mangaDir, chapterDirname, tmpDir)
             } else {
                 tmpDir.renameTo(chapterDirname)
@@ -637,6 +641,52 @@ class Downloader(
         return downloadedImagesCount == downloadPageCount
     }
 
+    // KMK -->
+    /**
+     * Re-encodes the pages as lossy WebP (very wide pages are shrunk) so the chapter archive is as small as
+     * possible. A page is only replaced when the new file is really smaller; pages that cannot be decoded are
+     * kept as they are.
+     */
+    private fun compressPages(dir: UniFile) {
+        dir.listFiles()?.forEach { file ->
+            val name = file.name ?: return@forEach
+            if (name.substringAfterLast('.', "").lowercase() !in setOf("jpg", "jpeg", "png")) return@forEach
+            runCatching {
+                val originalSize = file.length()
+                val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                file.openInputStream().use { android.graphics.BitmapFactory.decodeStream(it, null, bounds) }
+                if (bounds.outWidth <= 0) return@runCatching
+                var sample = 1
+                while (bounds.outWidth / (sample * 2) >= COMPRESS_MAX_WIDTH) sample *= 2
+                val options = android.graphics.BitmapFactory.Options().apply { inSampleSize = sample }
+                var bitmap = file.openInputStream().use {
+                    android.graphics.BitmapFactory.decodeStream(it, null, options)
+                } ?: return@runCatching
+                if (bitmap.width > COMPRESS_MAX_WIDTH) {
+                    val scaled = android.graphics.Bitmap.createScaledBitmap(
+                        bitmap,
+                        COMPRESS_MAX_WIDTH,
+                        (bitmap.height.toLong() * COMPRESS_MAX_WIDTH / bitmap.width).toInt().coerceAtLeast(1),
+                        true,
+                    )
+                    bitmap.recycle()
+                    bitmap = scaled
+                }
+                val format = if (android.os.Build.VERSION.SDK_INT >= 30) {
+                    android.graphics.Bitmap.CompressFormat.WEBP_LOSSY
+                } else {
+                    @Suppress("DEPRECATION")
+                    android.graphics.Bitmap.CompressFormat.WEBP
+                }
+                val target = dir.createFile("${name.substringBeforeLast('.')}.webp") ?: return@runCatching
+                target.openOutputStream().use { bitmap.compress(format, COMPRESS_QUALITY, it) }
+                bitmap.recycle()
+                if (target.length() in 1 until originalSize) file.delete() else target.delete()
+            }
+        }
+    }
+    // KMK <--
+
     /**
      * Archive the chapter pages as a CBZ.
      */
@@ -773,6 +823,10 @@ class Downloader(
     }
 
     companion object {
+        // KMK -->
+        private const val COMPRESS_MAX_WIDTH = 1600
+        private const val COMPRESS_QUALITY = 65
+        // KMK <--
         const val TMP_DIR_SUFFIX = "_tmp"
         const val WARNING_NOTIF_TIMEOUT_MS = 30_000L
         const val CHAPTERS_PER_SOURCE_QUEUE_WARNING_THRESHOLD = 15

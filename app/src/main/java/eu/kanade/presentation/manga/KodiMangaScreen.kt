@@ -50,11 +50,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import eu.kanade.presentation.components.relativeDateText
+import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.presentation.manga.components.MangaCover
+import eu.kanade.tachiyomi.ui.manga.ChapterList
 import eu.kanade.tachiyomi.ui.manga.MangaScreenModel
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.model.asMangaCover
 import tachiyomi.i18n.MR
+import tachiyomi.i18n.kmk.KMR
 import tachiyomi.presentation.core.i18n.stringResource
 
 // KMK -->
@@ -64,7 +67,7 @@ private val KodiDim = Color(0xFF8C8C8C)
 
 /**
  * Kodi-style manga page: poster on the left, details, action buttons and the chapter list on the
- * right. Controller: D-pad = move, A = open, X = update this manga, long-press = mark read/unread, Y = bookmark, B = back.
+ * right. Controller: D-pad = move, A = open, X = update this manga, long-press or Y = chapter menu, B = back.
  */
 @OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
@@ -79,6 +82,8 @@ fun KodiMangaScreen(
     onMigrateClicked: (() -> Unit)?,
     onMultiBookmarkClicked: (List<Chapter>, Boolean) -> Unit,
     onMultiMarkAsReadClicked: (List<Chapter>, Boolean) -> Unit,
+    onMarkPreviousAsRead: (Chapter) -> Unit,
+    onDownloadChapter: ((List<ChapterList.Item>, ChapterDownloadAction) -> Unit)?,
     onRefresh: () -> Unit,
 ) {
     val manga = state.manga
@@ -86,11 +91,27 @@ fun KodiMangaScreen(
     val chapters = state.processedChapters
     val isReading = remember(state.chapters) { state.chapters.any { it.chapter.read } }
     val firstFocus = remember { FocusRequester() }
+    var menuChapter by remember { mutableStateOf<ChapterList.Item?>(null) }
 
     LaunchedEffect(Unit) {
         runCatching { firstFocus.requestFocus() }
     }
 
+    eu.kanade.presentation.kodi.KodiMenuHost(
+        active = menuChapter != null,
+        overlay = {
+            menuChapter?.let { item ->
+                KodiChapterMenu(
+                    item = item,
+                    onDismiss = { menuChapter = null },
+                    onMarkRead = { onMultiMarkAsReadClicked(listOf(item.chapter), it) },
+                    onMarkPrevious = { onMarkPreviousAsRead(item.chapter) },
+                    onBookmark = { onMultiBookmarkClicked(listOf(item.chapter), !item.chapter.bookmark) },
+                    onDownload = { action -> onDownloadChapter?.invoke(listOf(item), action) },
+                )
+            }
+        },
+    ) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -197,6 +218,12 @@ fun KodiMangaScreen(
                     if (onMigrateClicked != null) {
                         KodiButton(text = stringResource(MR.strings.migrate), onClick = onMigrateClicked)
                     }
+                    if (onDownloadChapter != null) {
+                        KodiButton(
+                            text = stringResource(KMR.strings.chapter_menu_download),
+                            onClick = { onDownloadChapter(state.chapters, ChapterDownloadAction.START) },
+                        )
+                    }
                     if (state.trackingCount > 0 || state.hasLoggedInTrackers) {
                         KodiButton(text = stringResource(MR.strings.manga_tracking_tab), onClick = onTrackingClicked)
                     }
@@ -245,14 +272,73 @@ fun KodiMangaScreen(
                             isBookmarked = item.chapter.bookmark,
                             isDownloaded = item.isDownloaded,
                             onClick = { onChapterClicked(item.chapter) },
-                            onToggleRead = { onMultiMarkAsReadClicked(listOf(item.chapter), !item.chapter.read) },
-                            onToggleBookmark = { onMultiBookmarkClicked(listOf(item.chapter), !item.chapter.bookmark) },
+                            onMenu = { menuChapter = item },
                         )
                     }
                 }
             }
         }
     }
+    }
+}
+
+@Composable
+private fun KodiChapterMenu(
+    item: ChapterList.Item,
+    onDismiss: () -> Unit,
+    onMarkRead: (Boolean) -> Unit,
+    onMarkPrevious: () -> Unit,
+    onBookmark: () -> Unit,
+    onDownload: (ChapterDownloadAction) -> Unit,
+) {
+    val rows = buildList {
+        add(
+            eu.kanade.presentation.kodi.KodiListItem(
+                stringResource(
+                    if (item.chapter.read) KMR.strings.chapter_menu_unread else KMR.strings.chapter_menu_read,
+                ),
+            ) {
+                onMarkRead(!item.chapter.read)
+                onDismiss()
+            },
+        )
+        add(
+            eu.kanade.presentation.kodi.KodiListItem(stringResource(KMR.strings.chapter_menu_read_before)) {
+                onMarkPrevious()
+                onDismiss()
+            },
+        )
+        add(
+            eu.kanade.presentation.kodi.KodiListItem(
+                stringResource(
+                    if (item.isDownloaded) {
+                        KMR.strings.chapter_menu_delete_download
+                    } else {
+                        KMR.strings.chapter_menu_download
+                    },
+                ),
+            ) {
+                onDownload(if (item.isDownloaded) ChapterDownloadAction.DELETE else ChapterDownloadAction.START)
+                onDismiss()
+            },
+        )
+        add(
+            eu.kanade.presentation.kodi.KodiListItem(
+                stringResource(
+                    if (item.chapter.bookmark) {
+                        KMR.strings.chapter_menu_unbookmark
+                    } else {
+                        KMR.strings.chapter_menu_bookmark
+                    },
+                ),
+            ) {
+                onBookmark()
+                onDismiss()
+            },
+        )
+        add(eu.kanade.presentation.kodi.KodiListItem(stringResource(MR.strings.action_cancel)) { onDismiss() })
+    }
+    eu.kanade.presentation.kodi.KodiContextMenu(title = item.chapter.name, items = rows, onDismiss = onDismiss)
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -296,8 +382,7 @@ private fun KodiChapterRow(
     isBookmarked: Boolean,
     isDownloaded: Boolean,
     onClick: () -> Unit,
-    onToggleRead: () -> Unit,
-    onToggleBookmark: () -> Unit,
+    onMenu: () -> Unit,
 ) {
     var hasFocus by remember { mutableStateOf(false) }
     Row(
@@ -318,7 +403,7 @@ private fun KodiChapterRow(
                         true
                     }
                     Key.ButtonY -> {
-                        onToggleBookmark()
+                        onMenu()
                         true
                     }
                     else -> false
@@ -326,7 +411,7 @@ private fun KodiChapterRow(
             }
             .combinedClickable(
                 onClick = onClick,
-                onLongClick = onToggleRead,
+                onLongClick = onMenu,
             )
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,

@@ -41,6 +41,7 @@ fun KodiLibraryMenu(
     var version by remember { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
     val context = androidx.compose.ui.platform.LocalContext.current
+    val queuedText = stringResource(KMR.strings.kodi_download_queued, 0)
     val groups = categories.filter { it.id != 0L && !it.isSystemCategory }
     when (step) {
         MangaStep.MAIN -> KodiContextMenu(
@@ -52,6 +53,17 @@ fun KodiLibraryMenu(
                 KodiListItem(stringResource(KMR.strings.menu_create_group)) { step = MangaStep.CREATE },
                 KodiListItem(stringResource(KMR.strings.menu_select_multiple)) {
                     onSelectMultiple()
+                    onDismiss()
+                },
+                KodiListItem(stringResource(KMR.strings.kodi_download_manga)) {
+                    scope.launch {
+                        val count = eu.kanade.presentation.kodi.queueMangaDownload(manga)
+                        android.widget.Toast.makeText(
+                            context,
+                            queuedText.replaceFirst("0", count.toString()),
+                            android.widget.Toast.LENGTH_SHORT,
+                        ).show()
+                    }
                     onDismiss()
                 },
                 KodiListItem(stringResource(KMR.strings.menu_change_wallpaper)) { step = MangaStep.WALLPAPER },
