@@ -172,7 +172,7 @@ fun KodiListPage(
                 // KMK -->
                 val requester = if (index == 0) first else remember { FocusRequester() }
                 // Rows with a preview: the first touch only highlights (shows the preview), the second confirms.
-                val press = {
+                val press: () -> Unit = {
                     if (item.preview != null && focused != index) {
                         focused = index
                         runCatching { requester.requestFocus() }
