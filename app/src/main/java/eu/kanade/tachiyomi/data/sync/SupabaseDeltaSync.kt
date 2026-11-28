@@ -1,33 +1,27 @@
 package eu.kanade.tachiyomi.data.sync
 
 import android.content.Context
-import eu.kanade.domain.sync.SyncPreferences
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.source.service.SourcePreferences
-import eu.kanade.tachiyomi.data.backup.models.BackupChapter
-import eu.kanade.tachiyomi.extension.ExtensionManager
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.withTimeout
-import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
-import tachiyomi.domain.chapter.interactor.UpdateChapter
-import tachiyomi.domain.chapter.model.ChapterUpdate
-import tachiyomi.domain.history.model.HistoryUpdate
-import tachiyomi.domain.history.repository.HistoryRepository
-import tachiyomi.domain.manga.repository.MangaRepository
-import java.util.Date
+import eu.kanade.domain.sync.SyncPreferences
 import eu.kanade.presentation.kodi.KodiWallpaper
 import eu.kanade.tachiyomi.data.backup.create.BackupCreator
 import eu.kanade.tachiyomi.data.backup.create.BackupOptions
 import eu.kanade.tachiyomi.data.backup.models.Backup
+import eu.kanade.tachiyomi.data.backup.models.BackupChapter
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupSource
 import eu.kanade.tachiyomi.data.sync.service.SupabaseAuth
 import eu.kanade.tachiyomi.data.sync.service.SupabaseSyncService
+import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.POST
 import eu.kanade.tachiyomi.network.await
+import java.util.Date
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -38,9 +32,9 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.protobuf.ProtoBuf
 import logcat.LogPriority
-import logcat.logcat
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
+import tachiyomi.core.common.util.system.logcat
 import tachiyomi.data.DatabaseHandler
 import tachiyomi.data.manga.MangaMapper.mapManga
 import tachiyomi.domain.category.interactor.CreateCategoryWithName
@@ -48,8 +42,14 @@ import tachiyomi.domain.category.interactor.DeleteCategory
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.interactor.ReorderCategory
 import tachiyomi.domain.category.interactor.SetMangaCategories
+import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
+import tachiyomi.domain.chapter.interactor.UpdateChapter
+import tachiyomi.domain.chapter.model.ChapterUpdate
+import tachiyomi.domain.history.model.HistoryUpdate
+import tachiyomi.domain.history.repository.HistoryRepository
 import tachiyomi.domain.manga.interactor.GetLibraryManga
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.manga.repository.MangaRepository
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.io.File
@@ -186,7 +186,7 @@ class SupabaseDeltaSync(
             throw e
         } catch (e: Exception) {
             // The stamp of a failed part is not recorded, so it is retried next time; the other parts continue.
-            logcat(LogPriority.ERROR, e) { "Delta pull part $name failed" }
+            logcat(LogPriority.ERROR, throwable = e) { "Delta pull part $name failed" }
         }
     }
 
