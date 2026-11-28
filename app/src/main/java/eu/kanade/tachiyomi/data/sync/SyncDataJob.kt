@@ -121,7 +121,14 @@ class SyncDataJob(private val context: Context, workerParams: WorkerParameters) 
         private const val KEY_MODE = "mode"
         // KMK <--
 
-        fun startNow(context: Context, manual: Boolean = false, /* KMK --> */ pull: Boolean = true, mode: Int = 0 /* KMK <-- */) {
+        fun startNow(
+            context: Context,
+            manual: Boolean = false,
+            // KMK -->
+            pull: Boolean = true,
+            mode: Int = 0,
+            // KMK <--
+        ) {
             val wm = context.workManager
             if (wm.isRunning(TAG_JOB)) {
                 // Already running either as a scheduled or manual job
