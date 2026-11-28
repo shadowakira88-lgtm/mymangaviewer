@@ -294,6 +294,41 @@ object HomeScreen : Screen() {
             }
         }
 
+        // KMK -->
+        // Library manga that are in no group (left over from deleted groups): offered for removal.
+        val ungrouped by produceState(initialValue = emptyList<Long>()) {
+            Injekt.get<tachiyomi.domain.manga.interactor.GetLibraryManga>().subscribe().collect { list ->
+                value = list.filter { lm -> lm.categories.all { it == 0L } }.map { it.manga.id }
+            }
+        }
+        var confirmRemoveUngrouped by remember { mutableStateOf(false) }
+        if (confirmRemoveUngrouped) {
+            eu.kanade.presentation.kodi.KodiAlertDialog(
+                onDismissRequest = { confirmRemoveUngrouped = false },
+                title = { Text(stringResource(KMR.strings.kodi_remove_ungrouped, ungrouped.size)) },
+                text = { Text(stringResource(KMR.strings.kodi_remove_ungrouped_confirm)) },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(
+                        onClick = {
+                            confirmRemoveUngrouped = false
+                            val ids = ungrouped
+                            scope.launch {
+                                Injekt.get<tachiyomi.domain.manga.repository.MangaRepository>().updateAll(
+                                    ids.map { tachiyomi.domain.manga.model.MangaUpdate(id = it, favorite = false) },
+                                )
+                            }
+                        },
+                    ) { Text(stringResource(MR.strings.action_remove)) }
+                },
+                dismissButton = {
+                    androidx.compose.material3.TextButton(onClick = { confirmRemoveUngrouped = false }) {
+                        Text(stringResource(MR.strings.action_cancel))
+                    }
+                },
+            )
+        }
+        // KMK <--
+
         // Menu button (Y) on a library group: rename / delete / create group.
         var groupMenu by remember { mutableStateOf<tachiyomi.domain.category.model.Category?>(null) }
         var groupMenuOpen by remember { mutableStateOf(false) }
@@ -301,34 +336,33 @@ object HomeScreen : Screen() {
         val menu = listOf(
             KodiMenuEntry(
                 title = LibraryTab.options.title,
-                actions = (if (groups.isEmpty()) {
-                    listOf(
-                        KodiMenuAction(
-                            LibraryTab.options.title,
-                            onMenu = {
-                                groupMenu = null
-                                groupMenuOpen = true
-                            },
-                        ) { onOpenTab(LibraryTab) },
-                    )
-                } else {
-                    groups.map { group ->
-                        KodiMenuAction(
-                            group.name,
-                            onMenu = {
-                                groupMenu = group
-                                groupMenuOpen = true
-                            },
-                        ) {
-                            KodiNav.pendingCategoryId = group.id
-                            onOpenTab(LibraryTab)
-                        }
+                // KMK -->
+                // Only real groups: there is no "Library" default list any more.
+                actions = groups.map { group ->
+                    KodiMenuAction(
+                        group.name,
+                        onMenu = {
+                            groupMenu = group
+                            groupMenuOpen = true
+                        },
+                    ) {
+                        KodiNav.pendingCategoryId = group.id
+                        onOpenTab(LibraryTab)
                     }
-                }) + KodiMenuAction(eu.kanade.presentation.kodi.createGroupLabel()) {
+                } + listOfNotNull(
+                    if (ungrouped.isNotEmpty()) {
+                        KodiMenuAction(stringResource(KMR.strings.kodi_remove_ungrouped, ungrouped.size)) {
+                            confirmRemoveUngrouped = true
+                        }
+                    } else {
+                        null
+                    },
+                ) + KodiMenuAction(eu.kanade.presentation.kodi.createGroupLabel()) {
                     // Create group button: always last in the Library list (the only way when there are no groups).
                     groupMenu = null
                     groupMenuOpen = true
                 },
+                // KMK <--
             ),
             KodiMenuEntry(
                 title = stringResource(KMR.strings.kodi_menu_latest),

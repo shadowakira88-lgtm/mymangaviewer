@@ -847,12 +847,13 @@ class MangaScreenModel(
                         moveMangaToCategory(defaultCategory)
                     }
 
-                    // Automatic 'Default' or no categories
-                    defaultCategoryId == 0L || categories.isEmpty() -> {
-                        val result = updateManga.awaitUpdateFavorite(manga.id, true)
-                        if (!result) return@launchIO
-                        moveMangaToCategory(null)
+                    // KMK -->
+                    // There is no "Library" default list: a manga always goes into a group.
+                    categories.isEmpty() -> {
+                        Injekt.get<android.app.Application>().toast(KMR.strings.kodi_create_group_first)
+                        return@launchIO
                     }
+                    // KMK <--
 
                     // Choose a category
                     else -> {
