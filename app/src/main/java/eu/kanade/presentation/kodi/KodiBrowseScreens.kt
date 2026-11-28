@@ -1,7 +1,6 @@
 package eu.kanade.presentation.kodi
 
 import android.text.format.DateUtils
-import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -25,6 +24,9 @@ import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.SourceFilter
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
+import eu.kanade.tachiyomi.util.system.toast
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.flow.collectLatest
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
@@ -39,8 +41,6 @@ import tachiyomi.i18n.kmk.KMR
 import tachiyomi.presentation.core.i18n.stringResource
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import java.time.Instant
-import java.time.temporal.ChronoUnit
 
 // KMK -->
 private fun relative(time: Long): String =
@@ -267,11 +267,7 @@ object KodiSourcesScreen : Screen() {
                                         runCatching {
                                             Injekt.get<NetworkHelper>().cookieJar.remove(httpSource.baseUrl.toHttpUrl())
                                         }
-                                        Toast.makeText(
-                                            context,
-                                            cookiesCleared,
-                                            Toast.LENGTH_SHORT,
-                                        ).show()
+                                        context.toast(cookiesCleared)
                                         menuSource = null
                                     },
                                 )

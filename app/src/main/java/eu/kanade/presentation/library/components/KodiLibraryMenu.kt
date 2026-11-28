@@ -10,6 +10,7 @@ import androidx.compose.runtime.setValue
 import eu.kanade.presentation.kodi.KodiContextMenu
 import eu.kanade.presentation.kodi.KodiKeyboardDialog
 import eu.kanade.presentation.kodi.KodiListItem
+import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.launch
 import tachiyomi.domain.category.interactor.CreateCategoryWithName
 import tachiyomi.domain.category.interactor.GetCategories
@@ -58,11 +59,7 @@ fun KodiLibraryMenu(
                 KodiListItem(stringResource(KMR.strings.kodi_download_manga)) {
                     scope.launch {
                         val count = eu.kanade.presentation.kodi.queueMangaDownload(manga)
-                        android.widget.Toast.makeText(
-                            context,
-                            queuedText.replaceFirst("0", count.toString()),
-                            android.widget.Toast.LENGTH_SHORT,
-                        ).show()
+                        context.toast(queuedText.replaceFirst("0", count.toString()))
                     }
                     onDismiss()
                 },

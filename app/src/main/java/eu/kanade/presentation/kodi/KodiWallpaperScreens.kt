@@ -6,7 +6,6 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.Settings
-import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -21,6 +20,8 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.network.NetworkHelper
+import eu.kanade.tachiyomi.util.system.toast
+import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -35,7 +36,6 @@ import tachiyomi.i18n.kmk.KMR
 import tachiyomi.presentation.core.i18n.stringResource
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import java.io.File
 
 // KMK -->
 private val IMAGE_EXTENSIONS = setOf("jpg", "jpeg", "png", "webp")
@@ -83,7 +83,7 @@ class KodiWallpaperFolderScreen(private val mangaId: Long?, private val path: St
             } else {
                 KodiListItem(title = file.name, subtitle = "${file.length() / 1024} KB", preview = file) {
                     val ok = KodiWallpaper.apply(context, mangaId, Uri.fromFile(file))
-                    Toast.makeText(context, if (ok) okText else failText, Toast.LENGTH_SHORT).show()
+                    context.toast(if (ok) okText else failText)
                     if (ok) navigator.popUntilRoot()
                 }
             }
@@ -263,7 +263,7 @@ class KodiWallpaperWebScreen(private val mangaId: Long?, private val initialQuer
         fun use(image: WebImage) {
             if (busy) return
             busy = true
-            Toast.makeText(context, downloadingText, Toast.LENGTH_SHORT).show()
+            context.toast(downloadingText)
             scope.launch {
                 val message = withContext(Dispatchers.IO) {
                     runCatching {
@@ -287,7 +287,7 @@ class KodiWallpaperWebScreen(private val mangaId: Long?, private val initialQuer
                     }.getOrDefault(failText)
                 }
                 busy = false
-                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                context.toast(message)
                 if (message == okText) navigator.popUntilRoot()
             }
         }

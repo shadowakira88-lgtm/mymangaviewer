@@ -853,6 +853,33 @@ object SettingsDataScreen : SearchableSettings {
     @Composable
     private fun getSyncNowPref(): Preference.PreferenceGroup {
         val context = LocalContext.current
+        // KMK -->
+        var confirmClear by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+        if (confirmClear) {
+            eu.kanade.presentation.kodi.KodiAlertDialog(
+                onDismissRequest = { confirmClear = false },
+                title = { androidx.compose.material3.Text(stringResource(KMR.strings.pref_sync_clear)) },
+                text = { androidx.compose.material3.Text(stringResource(KMR.strings.pref_sync_clear_confirm)) },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(
+                        onClick = {
+                            confirmClear = false
+                            if (!SyncDataJob.isRunning(context)) {
+                                SyncDataJob.startNow(context, manual = true, mode = 3)
+                            } else {
+                                context.toast(SYMR.strings.sync_in_progress)
+                            }
+                        },
+                    ) { androidx.compose.material3.Text(stringResource(KMR.strings.action_ok)) }
+                },
+                dismissButton = {
+                    androidx.compose.material3.TextButton(onClick = { confirmClear = false }) {
+                        androidx.compose.material3.Text(stringResource(KMR.strings.action_cancel_kodi))
+                    }
+                },
+            )
+        }
+        // KMK <--
         return Preference.PreferenceGroup(
             title = stringResource(SYMR.strings.pref_sync_now_group_title),
             preferenceItems = persistentListOf(
@@ -897,6 +924,11 @@ object SettingsDataScreen : SearchableSettings {
                             context.toast(SYMR.strings.sync_in_progress)
                         }
                     },
+                ),
+                Preference.PreferenceItem.TextPreference(
+                    title = stringResource(KMR.strings.pref_sync_clear),
+                    subtitle = stringResource(KMR.strings.pref_sync_clear_summary),
+                    onClick = { confirmClear = true },
                 ),
                 // KMK <--
             ),

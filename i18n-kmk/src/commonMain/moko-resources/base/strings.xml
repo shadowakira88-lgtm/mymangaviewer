@@ -329,6 +329,9 @@
     <string name="pref_sync_upload_summary">Make the server a copy of this phone (everything here is uploaded)</string>
     <string name="pref_sync_download">Download sync</string>
     <string name="pref_sync_download_summary">Make this phone a copy of the server (groups, manga, settings follow the server)</string>
+    <string name="pref_sync_clear">Clear library data on server</string>
+    <string name="pref_sync_clear_summary">Deletes manga, read progress and groups on the server. Settings, extensions and wallpapers stay. Then press Upload sync.</string>
+    <string name="pref_sync_clear_confirm">Delete all library data (manga, read progress, groups) from the server? This phone is not changed.</string>
     <string name="latest_download">Download</string>
     <string name="kodi_download_pause">Pause downloads</string>
     <string name="kodi_download_start">Start downloads</string>

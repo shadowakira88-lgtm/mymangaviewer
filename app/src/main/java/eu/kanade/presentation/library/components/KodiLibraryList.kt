@@ -51,6 +51,7 @@ import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.category.visualName
 import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.tachiyomi.ui.library.LibraryItem
+import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import tachiyomi.domain.category.interactor.GetCategories
@@ -219,11 +220,7 @@ internal fun KodiLibraryList(
                         val manga = focused.libraryManga.manga
                         scope.launch {
                             val count = kodiQueueDownload(manga)
-                            android.widget.Toast.makeText(
-                                context,
-                                queuedText.replaceFirst("0", count.toString()),
-                                android.widget.Toast.LENGTH_SHORT,
-                            ).show()
+                            context.toast(queuedText.replaceFirst("0", count.toString()))
                         }
                     },
                 )

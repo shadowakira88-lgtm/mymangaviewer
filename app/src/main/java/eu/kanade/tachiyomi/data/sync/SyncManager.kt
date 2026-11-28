@@ -96,7 +96,13 @@ class SyncManager(
             val delta = SupabaseDeltaSync(context, this)
             delta.run(pull, mode)
             if (pull || mode != 0 || delta.uploaded > 0) {
-                notifier.showSyncSuccess("Download ${delta.downloaded}, upload ${delta.uploaded}")
+                notifier.showSyncSuccess(
+                    if (mode == 3) {
+                        "Library data cleared on server (${delta.uploaded} items)"
+                    } else {
+                        "Download ${delta.downloaded}, upload ${delta.uploaded}"
+                    },
+                )
             }
             return
         }

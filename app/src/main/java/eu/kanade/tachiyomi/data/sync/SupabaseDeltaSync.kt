@@ -160,6 +160,10 @@ class SupabaseDeltaSync(
                 syncPreferences.lastSyncTimestamp().set(System.currentTimeMillis())
                 return
             }
+            MODE_CLEAR_LIBRARY -> {
+                clearLibrary(token)
+                return
+            }
             MODE_UPLOAD -> {
                 index = Index(pulled = true)
                 saveIndex()
@@ -175,6 +179,34 @@ class SupabaseDeltaSync(
         }
         push(token)
         syncPreferences.lastSyncTimestamp().set(System.currentTimeMillis())
+    }
+
+    /** Deletes the library data on the server (manga, read progress, groups). Settings, extensions and wallpapers stay. */
+    private suspend fun clearLibrary(token: String) {
+        val names = list(token).keys.filter { it.startsWith("m_") || it.startsWith("p_") || it == CATS }
+        names.chunked(100).forEachIndexed { i, chunk ->
+            val body = buildJsonObject {
+                put(
+                    "prefixes",
+                    JsonArray(chunk.map { kotlinx.serialization.json.JsonPrimitive("$uid/delta/$it") }),
+                )
+            }.toString().toRequestBody("application/json".toMediaType())
+            val req = okhttp3.Request.Builder()
+                .url("$base/storage/v1/object/$bucket")
+                .headers(auth.authHeaders(token))
+                .delete(body)
+                .build()
+            network.client.newCall(req).await().use { r ->
+                check(r.isSuccessful) { "Delete failed: ${r.code}" }
+            }
+            report("Clear server", minOf((i + 1) * 100, names.size), names.size)
+        }
+        // forget them locally too, so the next upload sends everything again
+        index.local.keys.removeAll { it.startsWith("m_") || it.startsWith("p_") || it.startsWith("s_") || it == CATS }
+        index.remote.keys.removeAll { it.startsWith("m_") || it.startsWith("p_") || it == CATS }
+        saveIndex()
+        downloaded = 0
+        uploaded = names.size
     }
 
     // region pull
@@ -749,6 +781,7 @@ class SupabaseDeltaSync(
         const val MODE_NORMAL = 0
         const val MODE_UPLOAD = 1
         const val MODE_DOWNLOAD = 2
+        const val MODE_CLEAR_LIBRARY = 3
         const val PAGE = 1000
     }
 }
