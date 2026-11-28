@@ -113,6 +113,9 @@ fun KodiReaderOsd(
     /** How many times the magnifier lens zooms in. */
     magnifierZoom: Float = 2.5f,
     onMagnifierZoomChange: (delta: Float) -> Unit = {},
+    /** How fast the magnifier lens moves with the D-pad, 1 (slow) .. 10 (fast). */
+    magnifierSpeed: Int = 3,
+    onMagnifierSpeedChange: (delta: Int) -> Unit = {},
     // KMK <--
 ) {
     var calibrating by remember { mutableStateOf(false) }
@@ -212,6 +215,19 @@ fun KodiReaderOsd(
                         fontSize = 13.sp,
                     )
                     OsdButton(label = "+", onClick = { onMagnifierZoomChange(0.5f) })
+                }
+                Spacer(Modifier.height(6.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    OsdButton(label = "−", onClick = { onMagnifierSpeedChange(-1) })
+                    Text(
+                        text = stringResource(KMR.strings.reader_osd_lens_speed) + ": " + magnifierSpeed,
+                        color = Color.White,
+                        fontSize = 13.sp,
+                    )
+                    OsdButton(label = "+", onClick = { onMagnifierSpeedChange(1) })
                 }
                 Spacer(Modifier.height(6.dp))
                 // KMK <--

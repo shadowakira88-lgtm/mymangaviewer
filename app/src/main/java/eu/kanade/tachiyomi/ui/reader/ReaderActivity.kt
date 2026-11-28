@@ -627,7 +627,12 @@ class ReaderActivity : BaseActivity() {
             return true
         }
         if (magnifierActive) {
-            val step = (48 * resources.displayMetrics.density).toInt() * (1 + event.repeatCount.coerceAtMost(4))
+            // KMK -->
+            // Speed 1..10 = 4..40 dp per press; holding the button only speeds up a little.
+            val speed = Injekt.get<eu.kanade.domain.ui.UiPreferences>().magnifierSpeed().get().coerceIn(1, 10)
+            val base = 4 * speed * resources.displayMetrics.density
+            val step = (base * (1f + 0.5f * event.repeatCount.coerceAtMost(2))).toInt().coerceAtLeast(1)
+            // KMK <--
             val up = event.action == KeyEvent.ACTION_UP
             val moved = when (event.keyCode) {
                 KeyEvent.KEYCODE_DPAD_LEFT -> moveMagnifier(-step, 0)
@@ -778,7 +783,11 @@ class ReaderActivity : BaseActivity() {
             val shownBrightness = if (brightnessOn) brightnessValue else 0
             val lensZoomPref = remember { Injekt.get<eu.kanade.domain.ui.UiPreferences>().magnifierZoom() }
             val lensZoom by lensZoomPref.collectAsState()
+            val lensSpeedPref = remember { Injekt.get<eu.kanade.domain.ui.UiPreferences>().magnifierSpeed() }
+            val lensSpeed by lensSpeedPref.collectAsState()
             eu.kanade.presentation.reader.KodiReaderOsd(
+                magnifierSpeed = lensSpeed,
+                onMagnifierSpeedChange = { delta -> lensSpeedPref.set((lensSpeed + delta).coerceIn(1, 10)) },
                 magnifierZoom = lensZoom,
                 onMagnifierZoomChange = { delta ->
                     val value = (lensZoom + delta).coerceIn(1.5f, 8f)
@@ -1135,12 +1144,12 @@ class ReaderActivity : BaseActivity() {
             defaultReaderType != null &&
             defaultReaderType == ReadingMode.WEBTOON.flagValue
         ) {
+            // KMK -->
+            // No popup when a chapter opens (it hurt the eyes in VR mode).
             readingModeToast?.cancel()
-            readingModeToast = toast(SYMR.strings.eh_auto_webtoon_snack)
-        } else if (readerPreferences.showReadingMode().get()) {
-            // SY <--
-            showReadingModeToast(viewModel.getMangaReadingMode())
+            // KMK <--
         }
+        // SY <--
 
         loadingIndicator = ReaderProgressIndicator(
             context = this,
@@ -1190,7 +1199,10 @@ class ReaderActivity : BaseActivity() {
     private fun showReadingModeToast(mode: Int) {
         try {
             readingModeToast?.cancel()
-            readingModeToast = toast(ReadingMode.fromPreference(mode).stringRes)
+            // KMK -->
+            // Reading mode popup removed: it hurt the eyes in VR mode.
+            logcat { "Reading mode: ${ReadingMode.fromPreference(mode).name}" }
+            // KMK <--
         } catch (_: ArrayIndexOutOfBoundsException) {
             logcat(LogPriority.ERROR) { "Unknown reading mode: $mode" }
         }

@@ -11,10 +11,14 @@ import eu.kanade.presentation.browse.MigrateSearchScreen
 import eu.kanade.presentation.browse.components.BulkFavoriteDialogs
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.browse.BulkFavoriteScreenModel
+import eu.kanade.tachiyomi.ui.browse.source.globalsearch.SearchItemResult
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.SearchScreenModel
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import mihon.feature.migration.dialog.MigrateMangaDialog
 import mihon.feature.migration.list.MigrationListScreen
+import tachiyomi.domain.manga.model.asMangaCover
+import tachiyomi.i18n.kmk.KMR
+import tachiyomi.presentation.core.i18n.stringResource
 
 class MigrateSearchScreen(private val mangaId: Long) : Screen() {
 
@@ -34,6 +38,30 @@ class MigrateSearchScreen(private val mangaId: Long) : Screen() {
         }
         // KMK <--
 
+        // KMK -->
+        val kodi = androidx.compose.runtime.remember {
+            uy.kohesive.injekt.Injekt.get<eu.kanade.domain.ui.UiPreferences>().kodiLayout().get()
+        }
+        val onPick: (tachiyomi.domain.manga.model.Manga) -> Unit = {
+            val migrateListScreen = navigator.items
+                .filterIsInstance<MigrationListScreen>()
+                .lastOrNull()
+            if (migrateListScreen == null) {
+                screenModel.setMigrateDialog(mangaId, it)
+            } else {
+                migrateListScreen.addMatchOverride(current = mangaId, target = it.id)
+                navigator.popUntil { screen -> screen is MigrationListScreen }
+            }
+        }
+        if (kodi) {
+            KodiMigrateSearch(
+                state = state,
+                onPick = onPick,
+                onOpen = { navigator.push(MangaScreen(it.id, true)) },
+                onBack = navigator::pop,
+            )
+        } else
+        // KMK <--
         MigrateSearchScreen(
             state = state,
             fromSourceId = state.from?.source,
@@ -100,3 +128,52 @@ class MigrateSearchScreen(private val mangaId: Long) : Screen() {
         // KMK <--
     }
 }
+
+// KMK -->
+/**
+ * Kodi page of the migration search: the left side shows progress and Back, the right side lists every manga found
+ * (source under the title). Sources still searching are shown as one line each.
+ */
+@Composable
+private fun KodiMigrateSearch(
+    state: SearchScreenModel.State,
+    onPick: (tachiyomi.domain.manga.model.Manga) -> Unit,
+    onOpen: (tachiyomi.domain.manga.model.Manga) -> Unit,
+    onBack: () -> Unit,
+) {
+    val searching = stringResource(KMR.strings.kodi_migrate_searching)
+    val noResult = stringResource(KMR.strings.kodi_migrate_no_result)
+    val items = buildList {
+        state.items.forEach { (source, result) ->
+            when (result) {
+                is SearchItemResult.Success -> result.result.forEach { m ->
+                    add(
+                        eu.kanade.presentation.kodi.KodiListItem(
+                            title = m.title,
+                            subtitle = source.name,
+                            cover = m.asMangaCover(),
+                            onLongClick = { onOpen(m) },
+                        ) { onPick(m) },
+                    )
+                }
+                is SearchItemResult.Loading ->
+                    add(eu.kanade.presentation.kodi.KodiListItem(source.name + " - " + searching) {})
+                else -> Unit
+            }
+        }
+    }
+    eu.kanade.presentation.kodi.KodiListPage(
+        title = (state.from?.title ?: "") + "  (" + state.progress + "/" + state.total + ")",
+        headerActions = listOf(
+            eu.kanade.presentation.kodi.KodiListItem(
+                stringResource(tachiyomi.i18n.MR.strings.action_cancel),
+            ) { onBack() },
+        ),
+        items = items.ifEmpty {
+            listOf(
+                eu.kanade.presentation.kodi.KodiListItem(if (state.progress < state.total) searching else noResult) {},
+            )
+        },
+    )
+}
+// KMK <--

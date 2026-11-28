@@ -76,7 +76,7 @@ fun LibraryPager(
         // KMK -->
         if (kodiLayout) {
             KodiLibraryList(
-                items = items,
+                unsortedItems = items,
                 stateKey = category.id,
                 requestFocus = page == state.currentPage,
                 contentPadding = contentPadding,

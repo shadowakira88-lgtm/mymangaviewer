@@ -53,6 +53,9 @@ class UiPreferences(
     /** How many times the reader magnifier lens zooms in. */
     fun magnifierZoom() = preferenceStore.getFloat("pref_magnifier_zoom", 2.5f)
 
+    /** How far the magnifier lens moves per D-pad press, 1 (slow) .. 10 (fast). */
+    fun magnifierSpeed() = preferenceStore.getInt("pref_magnifier_speed", 3)
+
     fun controllerKey(action: String, default: Int) = preferenceStore.getInt("pref_ctrl_$action", default)
 
     /** GitHub repository (owner/name) whose `latest` release is used for in-app updates. */

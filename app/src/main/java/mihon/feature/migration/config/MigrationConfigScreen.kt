@@ -155,6 +155,60 @@ class MigrationConfigScreen(private val mangaIds: Collection<Long>) : Screen() {
             }
         }
 
+        // KMK -->
+        // Kodi page: Confirm / Cancel / Options on the left, every source with a check box on the right.
+        if (remember { Injekt.get<eu.kanade.domain.ui.UiPreferences>().kodiLayout().get() }) {
+            val all = state.sources.sortedWith(compareBy({ it.name.lowercase() }, { it.upperShortLanguage }))
+            val selectedCount = all.count { it.isSelected }
+            eu.kanade.presentation.kodi.KodiListPage(
+                title = stringResource(KMR.strings.kodi_migrate_choose_sources),
+                headerActions = listOf(
+                    eu.kanade.presentation.kodi.KodiListItem(
+                        stringResource(KMR.strings.kodi_migrate_confirm, selectedCount),
+                    ) {
+                        if (selectedCount > 0) {
+                            screenModel.saveSources()
+                            continueMigration(openSheet = false, extraSearchQuery = null)
+                        }
+                    },
+                    eu.kanade.presentation.kodi.KodiListItem(stringResource(MR.strings.action_cancel)) {
+                        navigator.pop()
+                    },
+                    eu.kanade.presentation.kodi.KodiListItem(stringResource(MR.strings.action_settings)) {
+                        screenModel.saveSources()
+                        migrationSheetOpen = true
+                    },
+                    eu.kanade.presentation.kodi.KodiListItem(
+                        stringResource(MR.strings.migrationConfigScreen_selectNoneLabel),
+                    ) { screenModel.toggleSelection(ScreenModel.SelectionConfig.None) },
+                ),
+                items = all.map { s ->
+                    val box = if (s.isSelected) "\u2611" else "\u2610"
+                    eu.kanade.presentation.kodi.KodiListItem(
+                        title = s.name + "  (" + s.upperShortLanguage + ")    " + box,
+                        subtitle = if (s.isSelected) {
+                            stringResource(KMR.strings.kodi_migrate_checked)
+                        } else {
+                            stringResource(KMR.strings.kodi_migrate_unchecked)
+                        },
+                    ) { screenModel.toggleSelection(s.id) }
+                },
+            )
+            if (migrationSheetOpen) {
+                MigrationConfigScreenSheet(
+                    preferences = screenModel.sourcePreferences,
+                    onDismissRequest = { migrationSheetOpen = false },
+                    onStartMigration = { extraSearchQuery ->
+                        migrationSheetOpen = false
+                        continueMigration(openSheet = false, extraSearchQuery = extraSearchQuery)
+                    },
+                    isSingleEntry = mangaIds.size == 1,
+                )
+            }
+            return
+        }
+        // KMK <--
+
         val lazyListState = rememberLazyListState()
         Scaffold(
             topBar = {

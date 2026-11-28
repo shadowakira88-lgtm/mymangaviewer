@@ -116,7 +116,9 @@ private fun LibraryManga.toCover() = DomainMangaCover(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun KodiLibraryList(
-    items: List<LibraryItem>,
+    // KMK -->
+    unsortedItems: List<LibraryItem>,
+    // KMK <--
     stateKey: Long,
     requestFocus: Boolean,
     contentPadding: PaddingValues,
@@ -125,6 +127,15 @@ internal fun KodiLibraryList(
     onLongClick: (LibraryManga) -> Unit,
     onClickContinueReading: ((LibraryManga) -> Unit)?,
 ) {
+    // KMK -->
+    // Every group is ordered by last read: the manga read most recently is always first.
+    val items = remember(unsortedItems) {
+        unsortedItems.sortedWith(
+            compareByDescending<LibraryItem> { it.libraryManga.lastRead }
+                .thenBy { it.libraryManga.manga.title.lowercase() },
+        )
+    }
+    // KMK <--
     var focusedId by rememberSaveable(stateKey) { mutableStateOf(items.first().id) }
     val focused = items.firstOrNull { it.id == focusedId } ?: items.first()
     val listState = rememberLazyListState()

@@ -335,6 +335,13 @@
     <string name="kodi_remove_ungrouped">Remove manga without group (%1$d)</string>
     <string name="kodi_remove_ungrouped_confirm">These manga are in no group (left from deleted groups). Remove them from the library?</string>
     <string name="kodi_create_group_first">Create a group first (Library &gt; Create new group)</string>
+    <string name="kodi_migrate_choose_sources">Migrate: choose sources</string>
+    <string name="kodi_migrate_confirm">Confirm (%1$d)</string>
+    <string name="kodi_migrate_checked">Checked: will be searched</string>
+    <string name="kodi_migrate_unchecked">Not checked</string>
+    <string name="kodi_migrate_searching">searching…</string>
+    <string name="kodi_migrate_no_result">No result found</string>
+    <string name="reader_osd_lens_speed">Lens speed</string>
     <string name="latest_download">Download</string>
     <string name="kodi_download_pause">Pause downloads</string>
     <string name="kodi_download_start">Start downloads</string>
