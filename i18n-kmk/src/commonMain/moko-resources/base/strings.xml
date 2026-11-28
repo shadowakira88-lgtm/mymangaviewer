@@ -417,7 +417,7 @@
     <string name="menu_move_to_group">Move to group</string>
     <string name="menu_remove_from_library">Remove from library</string>
     <string name="menu_select_multiple">Select several</string>
-    <string name="menu_confirm_delete_group">Delete group \"%1$s\"?</string>
+    <string name="menu_confirm_delete_group">Delete group \"%1$s\"? Its manga are removed from the library too.</string>
     <string name="menu_confirm_remove">Remove \"%1$s\" from library?</string>
     <string name="reader_osd_brightness_auto">Auto</string>
     <string name="kodi_migrate_other_sources">Other sources</string>

@@ -301,7 +301,7 @@ object HomeScreen : Screen() {
         val menu = listOf(
             KodiMenuEntry(
                 title = LibraryTab.options.title,
-                actions = if (groups.isEmpty()) {
+                actions = (if (groups.isEmpty()) {
                     listOf(
                         KodiMenuAction(
                             LibraryTab.options.title,
@@ -324,6 +324,10 @@ object HomeScreen : Screen() {
                             onOpenTab(LibraryTab)
                         }
                     }
+                }) + KodiMenuAction(eu.kanade.presentation.kodi.createGroupLabel()) {
+                    // Create group button: always last in the Library list (the only way when there are no groups).
+                    groupMenu = null
+                    groupMenuOpen = true
                 },
             ),
             KodiMenuEntry(

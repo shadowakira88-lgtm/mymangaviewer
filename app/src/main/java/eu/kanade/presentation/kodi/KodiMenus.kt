@@ -134,6 +134,10 @@ fun KodiContextMenu(title: String, items: List<KodiListItem>, onDismiss: () -> U
  * Menu on a library group: move up / down, rename, delete, create new group. [group] is null when there are
  * no groups yet (then only "create" is offered).
  */
+/** Label of the "create group" button in the Library menu. */
+@Composable
+fun createGroupLabel(): String = stringResource(KMR.strings.menu_create_group)
+
 @Composable
 fun KodiGroupMenu(group: Category?, groups: List<Category>, onDismiss: () -> Unit) {
     var step by remember { mutableStateOf(if (group == null) GroupStep.CREATE else GroupStep.MAIN) }
@@ -190,7 +194,7 @@ fun KodiGroupMenu(group: Category?, groups: List<Category>, onDismiss: () -> Uni
             onDismiss = { step = GroupStep.MAIN },
             items = listOf(
                 KodiListItem(stringResource(MR.strings.action_delete)) {
-                    if (group != null) scope.launch { Injekt.get<DeleteCategory>().await(group.id) }
+                    if (group != null) scope.launch { Injekt.get<DeleteCategory>().await(group.id, removeManga = true) }
                     onDismiss()
                 },
                 KodiListItem(stringResource(MR.strings.action_cancel)) { step = GroupStep.MAIN },

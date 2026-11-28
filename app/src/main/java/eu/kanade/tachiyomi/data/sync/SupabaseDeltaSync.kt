@@ -443,7 +443,7 @@ class SupabaseDeltaSync(
         val libraryCategories = Injekt.get<GetLibraryManga>().await().flatMap { it.categories }.toSet()
         local = getCategories.await().filter { !it.isSystemCategory }
         local.filter { it.name !in names && (authoritative || it.id !in libraryCategories) }
-            .forEach { delete.await(it.id) }
+            .forEach { delete.await(it.id, removeManga = false) }
         if (authoritative) {
             // this phone follows the server: manga that are in no group on the server leave all groups here
             val withGroups = doc.members.keys

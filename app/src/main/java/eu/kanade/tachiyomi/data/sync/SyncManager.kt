@@ -290,7 +290,7 @@ class SyncManager(
         if (previous.isNotEmpty() && mergedNames.isNotEmpty()) {
             getCategories.await()
                 .filter { !it.isSystemCategory && it.name !in mergedNames && it.name in previous }
-                .forEach { deleteCategory.await(it.id) }
+                .forEach { deleteCategory.await(it.id, removeManga = false) }
         }
         val names = if (restoring) {
             mergedNames
