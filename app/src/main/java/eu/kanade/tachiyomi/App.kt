@@ -261,7 +261,8 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
     private fun isSupabaseAutoSync(): Boolean {
         val syncPreferences: SyncPreferences = Injekt.get()
         val supabase = eu.kanade.tachiyomi.data.sync.SyncManager.SyncService.SUPABASE.value
-        return syncPreferences.syncService().get() == supabase &&
+        return syncPreferences.autoSyncEnabled().get() &&
+            syncPreferences.syncService().get() == supabase &&
             eu.kanade.tachiyomi.data.sync.service.SupabaseAuth(syncPreferences).isSignedIn
     }
     // KMK <--

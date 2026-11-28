@@ -6,6 +6,7 @@ import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.data.backup.models.BackupChapter
 import eu.kanade.tachiyomi.extension.ExtensionManager
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeout
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
@@ -140,20 +141,64 @@ class SupabaseDeltaSync(
         syncManager.reportProgress(text, done, total)
     }
 
-    suspend fun run(pull: Boolean) {
+    private var authoritative = false
+
+    /**
+     * @param mode [MODE_NORMAL], [MODE_UPLOAD] (the server becomes a copy of this phone) or [MODE_DOWNLOAD] (this
+     * phone becomes a copy of the server).
+     */
+    suspend fun run(pull: Boolean, mode: Int = MODE_NORMAL) {
         check(auth.isConfigured && auth.isSignedIn) { "Supabase account not signed in" }
         val token = auth.freshToken()
-        // A phone that never finished a pull must not push anything (it would overwrite the server with empty data).
-        if (pull || !index.pulled) {
-            pull(token)
-            index.pulled = true
-            saveIndex()
+        when (mode) {
+            MODE_DOWNLOAD -> {
+                index = Index()
+                authoritative = true
+                pull(token)
+                index.pulled = true
+                saveIndex()
+                syncPreferences.lastSyncTimestamp().set(System.currentTimeMillis())
+                return
+            }
+            MODE_UPLOAD -> {
+                index = Index(pulled = true)
+                saveIndex()
+            }
+            else -> {
+                // A phone that never finished a pull must not push anything (it would wipe the server).
+                if (pull || !index.pulled) {
+                    pull(token)
+                    index.pulled = true
+                    saveIndex()
+                }
+            }
         }
         push(token)
         syncPreferences.lastSyncTimestamp().set(System.currentTimeMillis())
     }
 
     // region pull
+
+    private suspend fun phase(name: String, block: suspend () -> Unit) {
+        try {
+            block()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // The stamp of a failed part is not recorded, so it is retried next time; the other parts continue.
+            logcat(LogPriority.ERROR, e) { "Delta pull part $name failed" }
+        }
+    }
+
+    private suspend fun catsLocalUnchanged(): Boolean {
+        if (authoritative) return true
+        val last = index.local[CATS]
+        if (last == null) {
+            // never synced: the server wins only on a phone that has no groups of its own yet
+            return Injekt.get<GetCategories>().await().none { !it.isSystemCategory }
+        }
+        return last == hash(catsJson().toByteArray())
+    }
 
     private suspend fun pull(token: String) {
         val listed = list(token)
@@ -179,38 +224,42 @@ class SupabaseDeltaSync(
 
         // 2. extensions (the important part: sources only work once their extension is installed)
         if (EXT in changed) {
-            val bytes = download(token, EXT)
-            if (bytes != null) {
-                val text = bytes.decodeToString()
-                runCatching { json.decodeFromString(ExtDoc.serializer(), text) }.getOrNull()?.let {
-                    installMissingExtensions(it)
-                    index.extDoc = text
+            phase("extensions") {
+                val bytes = download(token, EXT)
+                if (bytes != null) {
+                    val text = bytes.decodeToString()
+                    runCatching { json.decodeFromString(ExtDoc.serializer(), text) }.getOrNull()?.let {
+                        installMissingExtensions(it)
+                        index.extDoc = text
+                    }
                 }
+                index.remote[EXT] = changed.getValue(EXT)
+                saveIndex()
             }
-            index.remote[EXT] = changed.getValue(EXT)
-            saveIndex()
         }
 
         // 3. groups
         var catsDoc: CatsDoc? = null
         if (CATS in changed) {
-            report("Group", 0, 1)
-            val bytes = download(token, CATS)
-            if (bytes != null) {
-                catsDoc = runCatching { json.decodeFromString(CatsDoc.serializer(), bytes.decodeToString()) }
-                    .getOrNull()
-                if (catsDoc != null && localUnchanged(CATS, catsJson().toByteArray())) {
-                    applyGroups(catsDoc, bytes)
+            phase("groups") {
+                report("Group", 0, 1)
+                val bytes = download(token, CATS) ?: return@phase
+                val doc = runCatching { json.decodeFromString(CatsDoc.serializer(), bytes.decodeToString()) }
+                    .getOrNull() ?: return@phase
+                if (catsLocalUnchanged()) {
+                    applyGroups(doc, bytes)
+                    catsDoc = doc
                     downloaded++
-                } else {
-                    catsDoc = null
                 }
+                index.remote[CATS] = changed.getValue(CATS)
+                saveIndex()
             }
         }
 
         // 4. manga, group by group (members of the first group first), then the ones without a group
-        val members = catsDoc?.members ?: emptyMap()
-        val order = catsDoc?.categories?.sortedBy { it.order }?.map { it.name } ?: emptyList()
+        val doc = catsDoc
+        val members = doc?.members ?: emptyMap()
+        val order = doc?.categories?.sortedBy { it.order }?.map { it.name } ?: emptyList()
         val mangaNames = changed.keys.filter { it.startsWith("m_") }
             .sortedBy { name ->
                 val groups = members[name.removePrefix("m_")]
@@ -361,7 +410,15 @@ class SupabaseDeltaSync(
         }
         val libraryCategories = Injekt.get<GetLibraryManga>().await().flatMap { it.categories }.toSet()
         local = getCategories.await().filter { !it.isSystemCategory }
-        local.filter { it.name !in names && it.id !in libraryCategories }.forEach { delete.await(it.id) }
+        local.filter { it.name !in names && (authoritative || it.id !in libraryCategories) }
+            .forEach { delete.await(it.id) }
+        if (authoritative) {
+            // this phone follows the server: manga that are in no group on the server leave all groups here
+            val withGroups = doc.members.keys
+            manga.filterKeys { it !in withGroups }.values.forEach { m ->
+                setCategories.await(m.id, emptyList())
+            }
+        }
         local = getCategories.await().filter { !it.isSystemCategory }
         doc.categories.sortedBy { it.order }.forEachIndexed { i, c ->
             local.firstOrNull { it.name == c.name }?.let { cat -> reorder.await(cat, i) }
@@ -689,6 +746,9 @@ class SupabaseDeltaSync(
         const val PREFS = "prefs.bin"
         const val CATS = "cats.json"
         const val EXT = "ext.json"
+        const val MODE_NORMAL = 0
+        const val MODE_UPLOAD = 1
+        const val MODE_DOWNLOAD = 2
         const val PAGE = 1000
     }
 }

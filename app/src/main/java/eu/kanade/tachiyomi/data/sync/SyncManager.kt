@@ -83,7 +83,7 @@ class SyncManager(
      * This function retrieves local data (favorites, manga, extensions, and categories)
      * from the database using the BackupManager, then synchronizes the data with a sync service.
      */
-    suspend fun syncData(pull: Boolean = true) {
+    suspend fun syncData(pull: Boolean = true, mode: Int = 0) {
         // Reset isSyncing in case it was left over or failed syncing during restore.
         handler.await(inTransaction = true) {
             mangasQueries.resetIsSyncing()
@@ -94,8 +94,8 @@ class SyncManager(
         // Supabase: incremental sync (pull once when the app opens, afterwards only push what changed).
         if (SyncService.fromInt(syncPreferences.syncService().get()) == SyncService.SUPABASE) {
             val delta = SupabaseDeltaSync(context, this)
-            delta.run(pull)
-            if (pull || delta.uploaded > 0) {
+            delta.run(pull, mode)
+            if (pull || mode != 0 || delta.uploaded > 0) {
                 notifier.showSyncSuccess("Download ${delta.downloaded}, upload ${delta.uploaded}")
             }
             return

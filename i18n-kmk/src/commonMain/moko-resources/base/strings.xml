@@ -323,6 +323,12 @@
     <string name="kodi_menu_latest">Latest</string>
     <string name="latest_updates">Updates</string>
     <string name="latest_bookmarks">Bookmark</string>
+    <string name="pref_sync_auto">Automatic sync</string>
+    <string name="pref_sync_auto_summary">Sync when the app opens, when something changes and when you leave the app. Off: only the buttons below sync.</string>
+    <string name="pref_sync_upload">Upload sync</string>
+    <string name="pref_sync_upload_summary">Make the server a copy of this phone (everything here is uploaded)</string>
+    <string name="pref_sync_download">Download sync</string>
+    <string name="pref_sync_download_summary">Make this phone a copy of the server (groups, manga, settings follow the server)</string>
     <string name="latest_download">Download</string>
     <string name="kodi_download_pause">Pause downloads</string>
     <string name="kodi_download_start">Start downloads</string>

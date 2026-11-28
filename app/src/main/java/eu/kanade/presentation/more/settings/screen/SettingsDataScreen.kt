@@ -857,6 +857,13 @@ object SettingsDataScreen : SearchableSettings {
             title = stringResource(SYMR.strings.pref_sync_now_group_title),
             preferenceItems = persistentListOf(
                 getSyncOptionsPref(),
+                // KMK -->
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = Injekt.get<SyncPreferences>().autoSyncEnabled(),
+                    title = stringResource(KMR.strings.pref_sync_auto),
+                    subtitle = stringResource(KMR.strings.pref_sync_auto_summary),
+                ),
+                // KMK <--
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(SYMR.strings.pref_sync_now),
                     subtitle = stringResource(SYMR.strings.pref_sync_now_subtitle),
@@ -868,6 +875,30 @@ object SettingsDataScreen : SearchableSettings {
                         }
                     },
                 ),
+                // KMK -->
+                Preference.PreferenceItem.TextPreference(
+                    title = stringResource(KMR.strings.pref_sync_upload),
+                    subtitle = stringResource(KMR.strings.pref_sync_upload_summary),
+                    onClick = {
+                        if (!SyncDataJob.isRunning(context)) {
+                            SyncDataJob.startNow(context, manual = true, mode = 1)
+                        } else {
+                            context.toast(SYMR.strings.sync_in_progress)
+                        }
+                    },
+                ),
+                Preference.PreferenceItem.TextPreference(
+                    title = stringResource(KMR.strings.pref_sync_download),
+                    subtitle = stringResource(KMR.strings.pref_sync_download_summary),
+                    onClick = {
+                        if (!SyncDataJob.isRunning(context)) {
+                            SyncDataJob.startNow(context, manual = true, mode = 2)
+                        } else {
+                            context.toast(SYMR.strings.sync_in_progress)
+                        }
+                    },
+                ),
+                // KMK <--
             ),
         )
     }

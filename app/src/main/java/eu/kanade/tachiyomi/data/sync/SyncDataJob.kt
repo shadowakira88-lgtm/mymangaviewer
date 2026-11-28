@@ -36,6 +36,11 @@ class SyncDataJob(private val context: Context, workerParams: WorkerParameters) 
     // KMK <--
 
     override suspend fun doWork(): Result {
+        // KMK -->
+        if (tags.contains(TAG_AUTO) && !Injekt.get<SyncPreferences>().autoSyncEnabled().get()) {
+            return Result.success()
+        }
+        // KMK <--
         if (tags.contains(TAG_AUTO)) {
             if (!context.isOnline()) {
                 return Result.retry()
@@ -53,7 +58,10 @@ class SyncDataJob(private val context: Context, workerParams: WorkerParameters) 
         setForegroundSafely()
 
         return try {
-            SyncManager(context).syncData(pull = inputData.getBoolean(KEY_PULL, true))
+            SyncManager(context).syncData(
+                pull = inputData.getBoolean(KEY_PULL, true),
+                mode = inputData.getInt(KEY_MODE, 0),
+            )
             Result.success()
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e)
@@ -110,9 +118,10 @@ class SyncDataJob(private val context: Context, workerParams: WorkerParameters) 
 
         // KMK -->
         private const val KEY_PULL = "pull"
+        private const val KEY_MODE = "mode"
         // KMK <--
 
-        fun startNow(context: Context, manual: Boolean = false, /* KMK --> */ pull: Boolean = true /* KMK <-- */) {
+        fun startNow(context: Context, manual: Boolean = false, /* KMK --> */ pull: Boolean = true, mode: Int = 0 /* KMK <-- */) {
             val wm = context.workManager
             if (wm.isRunning(TAG_JOB)) {
                 // Already running either as a scheduled or manual job
@@ -123,7 +132,7 @@ class SyncDataJob(private val context: Context, workerParams: WorkerParameters) 
                 .addTag(TAG_JOB)
                 .addTag(tag)
                 // KMK -->
-                .setInputData(androidx.work.workDataOf(KEY_PULL to pull))
+                .setInputData(androidx.work.workDataOf(KEY_PULL to pull, KEY_MODE to mode))
                 // KMK <--
                 .build()
             context.workManager.enqueueUniqueWork(tag, ExistingWorkPolicy.KEEP, request)

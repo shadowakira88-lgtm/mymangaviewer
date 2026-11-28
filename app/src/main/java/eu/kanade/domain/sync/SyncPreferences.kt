@@ -30,6 +30,11 @@ class SyncPreferences(
     fun webDavPassword() = preferenceStore.getString("connection_webdav_password", "")
     fun webDavFolder() = preferenceStore.getString("connection_webdav_folder", "komikku")
 
+    // KMK -->
+    /** Turns automatic syncing (open / change / leave app) on or off; manual sync always works. */
+    fun autoSyncEnabled() = preferenceStore.getBoolean("sync_auto_enabled", true)
+    // KMK <--
+
     fun supabaseUrl() = preferenceStore.getString("connection_supabase_url", "")
     fun supabaseAnonKey() = preferenceStore.getString("connection_supabase_anon_key", "")
     fun supabaseEmail() = preferenceStore.getString("connection_supabase_email", "")
