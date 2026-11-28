@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import eu.kanade.presentation.more.settings.Preference
 import kotlinx.coroutines.launch
+import tachiyomi.presentation.core.util.collectAsState
 
 // KMK -->
 private val KodiBg = Color(0xFF0E1216)
