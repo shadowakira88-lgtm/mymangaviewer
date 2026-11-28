@@ -2,6 +2,19 @@ package eu.kanade.tachiyomi.data.sync
 
 import android.content.Context
 import eu.kanade.domain.sync.SyncPreferences
+import eu.kanade.domain.base.BasePreferences
+import eu.kanade.domain.source.service.SourcePreferences
+import eu.kanade.tachiyomi.data.backup.models.BackupChapter
+import eu.kanade.tachiyomi.extension.ExtensionManager
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeout
+import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
+import tachiyomi.domain.chapter.interactor.UpdateChapter
+import tachiyomi.domain.chapter.model.ChapterUpdate
+import tachiyomi.domain.history.model.HistoryUpdate
+import tachiyomi.domain.history.repository.HistoryRepository
+import tachiyomi.domain.manga.repository.MangaRepository
+import java.util.Date
 import eu.kanade.presentation.kodi.KodiWallpaper
 import eu.kanade.tachiyomi.data.backup.create.BackupCreator
 import eu.kanade.tachiyomi.data.backup.create.BackupOptions
@@ -72,9 +85,28 @@ class SupabaseDeltaSync(
 
     @Serializable
     private class Index(
+        /** True once a complete pull has finished; nothing is ever pushed before that. */
+        var pulled: Boolean = false,
         val local: MutableMap<String, String> = mutableMapOf(),
         val remote: MutableMap<String, String> = mutableMapOf(),
+        /** Extension list last known on the server, so a push never shrinks it. */
+        var extDoc: String = "",
     )
+
+    @Serializable
+    private class ExtEntry(val pkg: String, val sig: String, val name: String, val sources: List<Long>)
+
+    @Serializable
+    private class ExtDoc(val extensions: List<ExtEntry>)
+
+    @Serializable
+    private class ChProg(val read: Boolean, val bookmark: Boolean, val page: Long, val mod: Long)
+
+    @Serializable
+    private class HistEntry(val url: String, val lastRead: Long, val dur: Long)
+
+    @Serializable
+    private class ProgressDoc(val chapters: Map<String, ChProg>, val history: List<HistEntry>)
 
     @Serializable
     private class CatEntry(val name: String, val order: Long, val flags: Long, val hidden: Boolean)
@@ -98,10 +130,25 @@ class SupabaseDeltaSync(
             savedSearchesFeeds = true,
         )
 
+    var downloaded = 0
+        private set
+    var uploaded = 0
+        private set
+
+    private suspend fun report(text: String, done: Int, total: Int) {
+        if (total > 20 && done % 5 != 0 && done != total) return
+        syncManager.reportProgress(text, done, total)
+    }
+
     suspend fun run(pull: Boolean) {
         check(auth.isConfigured && auth.isSignedIn) { "Supabase account not signed in" }
         val token = auth.freshToken()
-        if (pull) pull(token)
+        // A phone that never finished a pull must not push anything (it would overwrite the server with empty data).
+        if (pull || !index.pulled) {
+            pull(token)
+            index.pulled = true
+            saveIndex()
+        }
         push(token)
         syncPreferences.lastSyncTimestamp().set(System.currentTimeMillis())
     }
@@ -110,66 +157,179 @@ class SupabaseDeltaSync(
 
     private suspend fun pull(token: String) {
         val listed = list(token)
+        // Compare with what was already applied: only objects that are new or changed on the server are downloaded.
         val changed = listed.filter { (name, stamp) -> index.remote[name] != stamp }
         if (changed.isEmpty()) return
         logcat(LogPriority.DEBUG) { "Delta pull: ${changed.size} changed objects" }
 
-        // 1. manga
-        val remoteManga = mutableListOf<BackupManga>()
-        val sources = mutableMapOf<Long, BackupSource>()
-        val mangaNames = changed.keys.filter { it.startsWith("m_") }
-        mangaNames.forEach { name ->
-            val bytes = download(token, name) ?: return@forEach
-            runCatching { protoBuf.decodeFromByteArray(Backup.serializer(), bytes) }.getOrNull()?.let { b ->
-                remoteManga += b.backupManga
-                b.backupSources.forEach { sources[it.sourceId] = it }
-            }
-        }
-        if (remoteManga.isNotEmpty()) {
-            syncManager.applyRemoteManga(Backup(backupManga = remoteManga, backupSources = sources.values.toList()))
-            keyToManga = null
-            remoteManga.forEach { m ->
-                val name = "m_${key(m.source, m.url)}"
-                currentMangaFingerprint(m.source, m.url)?.let { index.local[name] = it }
-            }
-        }
-
-        // 2. settings (remote wins only when nothing changed here since the last sync)
+        // 1. Elenaku / browse settings, source settings, extension repos, saved searches, feeds
         if (PREFS in changed) {
+            report("Setting", 0, 1)
             val bytes = download(token, PREFS)
             if (bytes != null && localUnchanged(PREFS, prefsBytes())) {
                 runCatching { protoBuf.decodeFromByteArray(Backup.serializer(), bytes) }.getOrNull()?.let {
                     syncManager.applyRemotePrefs(it)
                     index.local[PREFS] = hash(prefsBytes())
+                    downloaded++
+                }
+            }
+            index.remote[PREFS] = changed.getValue(PREFS)
+            saveIndex()
+        }
+
+        // 2. extensions (the important part: sources only work once their extension is installed)
+        if (EXT in changed) {
+            val bytes = download(token, EXT)
+            if (bytes != null) {
+                val text = bytes.decodeToString()
+                runCatching { json.decodeFromString(ExtDoc.serializer(), text) }.getOrNull()?.let {
+                    installMissingExtensions(it)
+                    index.extDoc = text
+                }
+            }
+            index.remote[EXT] = changed.getValue(EXT)
+            saveIndex()
+        }
+
+        // 3. groups
+        var catsDoc: CatsDoc? = null
+        if (CATS in changed) {
+            report("Group", 0, 1)
+            val bytes = download(token, CATS)
+            if (bytes != null) {
+                catsDoc = runCatching { json.decodeFromString(CatsDoc.serializer(), bytes.decodeToString()) }
+                    .getOrNull()
+                if (catsDoc != null && localUnchanged(CATS, catsJson().toByteArray())) {
+                    applyGroups(catsDoc, bytes)
+                    downloaded++
+                } else {
+                    catsDoc = null
                 }
             }
         }
 
-        // 3. groups and their members
-        if (CATS in changed) {
-            val bytes = download(token, CATS)
-            if (bytes != null && localUnchanged(CATS, catsJson().toByteArray())) {
-                runCatching { json.decodeFromString(CatsDoc.serializer(), bytes.decodeToString()) }.getOrNull()
-                    ?.let {
-                        applyCats(it)
-                        index.local[CATS] = hash(catsJson().toByteArray())
-                    }
+        // 4. manga, group by group (members of the first group first), then the ones without a group
+        val members = catsDoc?.members ?: emptyMap()
+        val order = catsDoc?.categories?.sortedBy { it.order }?.map { it.name } ?: emptyList()
+        val mangaNames = changed.keys.filter { it.startsWith("m_") }
+            .sortedBy { name ->
+                val groups = members[name.removePrefix("m_")]
+                if (groups.isNullOrEmpty()) {
+                    Int.MAX_VALUE
+                } else {
+                    groups.minOf { g -> order.indexOf(g).let { if (it >= 0) it else 9999 } }
+                }
             }
+        val categoryIds = Injekt.get<GetCategories>().await().associate { it.name to it.id }
+        mangaNames.chunked(10).forEachIndexed { batchIndex, batch ->
+            val remoteManga = mutableListOf<BackupManga>()
+            val sources = mutableMapOf<Long, BackupSource>()
+            batch.forEach { name ->
+                val bytes = download(token, name) ?: return@forEach
+                runCatching { protoBuf.decodeFromByteArray(Backup.serializer(), bytes) }.getOrNull()?.let { b ->
+                    remoteManga += b.backupManga
+                    b.backupSources.forEach { sources[it.sourceId] = it }
+                }
+            }
+            if (remoteManga.isNotEmpty()) {
+                syncManager.applyRemoteManga(
+                    Backup(backupManga = remoteManga, backupSources = sources.values.toList()),
+                )
+                val setCategories = Injekt.get<SetMangaCategories>()
+                val mangaRepository = Injekt.get<MangaRepository>()
+                remoteManga.forEach { m ->
+                    val k = key(m.source, m.url)
+                    val local = mangaRepository.getMangaByUrlAndSourceId(m.url, m.source) ?: return@forEach
+                    members[k]?.let { names ->
+                        setCategories.await(local.id, names.mapNotNull { categoryIds[it] })
+                    }
+                    index.local["m_$k"] = fingerprint(local)
+                    index.local["s_$k"] = structureHash(m)
+                    downloaded++
+                }
+            }
+            batch.forEach { index.remote[it] = changed.getValue(it) }
+            saveIndex()
+            report("Manga", minOf((batchIndex + 1) * 10, mangaNames.size), mangaNames.size)
         }
 
-        // 4. wallpapers
-        changed.keys.filter { it.startsWith("wp_") }.forEach { name ->
-            val target = wallpaperFile(name) ?: return@forEach
-            if (target.exists() && index.local[name] != wallpaperFingerprint(target)) return@forEach
-            val bytes = download(token, name) ?: return@forEach
-            target.parentFile?.mkdirs()
-            target.writeBytes(bytes)
-            index.local[name] = wallpaperFingerprint(target)
-            KodiWallpaper.notifyChanged()
+        // 5. read progress / history of manga whose full object did not change (a small file per manga)
+        keyToManga = null
+        val progressNames = changed.keys.filter {
+            it.startsWith("p_") && "m_" + it.removePrefix("p_").removeSuffix(".json") !in mangaNames
+        }
+        if (progressNames.isNotEmpty()) {
+            val byKey = mangaByKey()
+            progressNames.forEachIndexed { i, name ->
+                val k = name.removePrefix("p_").removeSuffix(".json")
+                val local = byKey[k]
+                val text = download(token, name)?.decodeToString()
+                if (local != null && text != null) {
+                    runCatching { json.decodeFromString(ProgressDoc.serializer(), text) }.getOrNull()?.let {
+                        applyProgress(local, it)
+                        Injekt.get<MangaRepository>().getMangaByUrlAndSourceId(local.url, local.source)?.let { m ->
+                            index.local["m_$k"] = fingerprint(m)
+                        }
+                        index.local[name] = hash(text.toByteArray())
+                        downloaded++
+                    }
+                }
+                index.remote[name] = changed.getValue(name)
+                report("Read / history", i + 1, progressNames.size)
+            }
+            saveIndex()
         }
 
-        index.remote.putAll(listed)
+        // 6. wallpapers
+        val wallpapers = changed.keys.filter { it.startsWith("wp_") }
+        if (wallpapers.isNotEmpty()) mangaByKey()
+        wallpapers.forEachIndexed { i, name ->
+            val target = wallpaperFile(name)
+            if (target != null && !(target.exists() && index.local[name] != wallpaperFingerprint(target))) {
+                download(token, name)?.let { bytes ->
+                    target.parentFile?.mkdirs()
+                    target.writeBytes(bytes)
+                    index.local[name] = wallpaperFingerprint(target)
+                    KodiWallpaper.notifyChanged()
+                    downloaded++
+                }
+            }
+            index.remote[name] = changed.getValue(name)
+            report("Wallpaper", i + 1, wallpapers.size)
+        }
+
+        // anything else (e.g. objects of an older version) is just remembered
+        index.remote.putAll(listed.filter { (n, _) -> n !in index.remote })
         saveIndex()
+    }
+
+    private suspend fun installMissingExtensions(doc: ExtDoc) {
+        val manager = Injekt.get<ExtensionManager>()
+        val installed = manager.installedExtensionsFlow.value.map { it.pkgName }.toSet()
+        val blank = Injekt.get<SourcePreferences>().disabledSources().get()
+        val missing = doc.extensions.filter { e ->
+            e.pkg !in installed && !(e.sources.isNotEmpty() && e.sources.all { it.toString() in blank })
+        }
+        if (missing.isEmpty()) return
+        runCatching { manager.findAvailableExtensions() }
+        val available = manager.availableExtensionsFlow.first()
+        val basePrefs = Injekt.get<BasePreferences>().extensionInstaller()
+        if (basePrefs.get() != BasePreferences.ExtensionInstaller.SHIZUKU) {
+            basePrefs.set(BasePreferences.ExtensionInstaller.PRIVATE)
+        }
+        missing.forEachIndexed { i, e ->
+            report("Extension: ${e.name}", i, missing.size)
+            val ext = available.firstOrNull { it.pkgName == e.pkg && it.signatureHash == e.sig }
+                ?: available.firstOrNull { it.pkgName == e.pkg }
+                ?: return@forEachIndexed
+            runCatching {
+                withTimeout(180_000) {
+                    manager.installExtension(ext).first { it.isCompleted() }
+                }
+            }
+            downloaded++
+        }
+        report("Extension", missing.size, missing.size)
     }
 
     private fun localUnchanged(name: String, current: ByteArray): Boolean {
@@ -177,20 +337,20 @@ class SupabaseDeltaSync(
         return last == hash(current)
     }
 
-    private suspend fun applyCats(doc: CatsDoc) {
+    /**
+     * Makes the local groups match the server: create missing ones, set members, order, and only then delete the
+     * local groups that are gone from the server AND are empty now (so a bad server copy can never wipe a group
+     * that still holds manga).
+     */
+    private suspend fun applyGroups(doc: CatsDoc, remoteBytes: ByteArray) {
         val getCategories = Injekt.get<GetCategories>()
         val create = Injekt.get<CreateCategoryWithName>()
         val delete = Injekt.get<DeleteCategory>()
         val reorder = Injekt.get<ReorderCategory>()
         val names = doc.categories.map { it.name }.toSet()
         var local = getCategories.await().filter { !it.isSystemCategory }
-        local.filter { it.name !in names }.forEach { delete.await(it.id) }
         doc.categories.forEach { c ->
             if (local.none { it.name == c.name }) create.await(c.name)
-        }
-        local = getCategories.await().filter { !it.isSystemCategory }
-        doc.categories.sortedBy { it.order }.forEachIndexed { i, c ->
-            local.firstOrNull { it.name == c.name }?.let { cat -> reorder.await(cat, i) }
         }
         val byName = getCategories.await().associateBy { it.name }
         val setCategories = Injekt.get<SetMangaCategories>()
@@ -199,6 +359,48 @@ class SupabaseDeltaSync(
             val m = manga[key] ?: return@forEach
             setCategories.await(m.id, groupNames.mapNotNull { byName[it]?.id })
         }
+        val libraryCategories = Injekt.get<GetLibraryManga>().await().flatMap { it.categories }.toSet()
+        local = getCategories.await().filter { !it.isSystemCategory }
+        local.filter { it.name !in names && it.id !in libraryCategories }.forEach { delete.await(it.id) }
+        local = getCategories.await().filter { !it.isSystemCategory }
+        doc.categories.sortedBy { it.order }.forEachIndexed { i, c ->
+            local.firstOrNull { it.name == c.name }?.let { cat -> reorder.await(cat, i) }
+        }
+        // remember the server copy: if the local result differs from it, the next push repairs the server
+        index.local[CATS] = hash(remoteBytes)
+    }
+
+    private suspend fun applyProgress(manga: Manga, doc: ProgressDoc) {
+        val chapters = Injekt.get<GetChaptersByMangaId>().await(manga.id)
+        val updates = chapters.mapNotNull { ch ->
+            val r = doc.chapters[ch.url] ?: return@mapNotNull null
+            val newer = r.mod > ch.lastModifiedAt || (r.read && !ch.read)
+            if (newer && (r.read != ch.read || r.bookmark != ch.bookmark || r.page != ch.lastPageRead)) {
+                ChapterUpdate(
+                    id = ch.id,
+                    read = r.read || ch.read,
+                    bookmark = r.bookmark,
+                    lastPageRead = if (r.read) 0L else r.page,
+                )
+            } else {
+                null
+            }
+        }
+        if (updates.isNotEmpty()) Injekt.get<UpdateChapter>().awaitAll(updates)
+        val historyRepository = Injekt.get<HistoryRepository>()
+        val localHistory = historyRepository.getHistoryByMangaId(manga.id).associateBy { it.chapterId }
+        val byUrl = chapters.associateBy { it.url }
+        val historyUpdates = doc.history.mapNotNull { h ->
+            val ch = byUrl[h.url] ?: return@mapNotNull null
+            val local = localHistory[ch.id]
+            val localAt = local?.readAt?.time ?: 0L
+            if (h.lastRead > localAt) {
+                HistoryUpdate(ch.id, Date(h.lastRead), maxOf(0L, h.dur - (local?.readDuration ?: 0L)))
+            } else {
+                null
+            }
+        }
+        if (historyUpdates.isNotEmpty()) historyRepository.upsertHistory(historyUpdates)
     }
 
     // endregion
@@ -211,19 +413,68 @@ class SupabaseDeltaSync(
         // manga: only the ones whose version changed since the last push
         val all = handler.awaitList { mangasQueries.getMangasWithFavoriteTimestamp(::mapManga) }
         val dirty = all.filter { index.local["m_${key(it.source, it.url)}"] != fingerprint(it) }
-        dirty.chunked(20).forEach { chunk ->
+        dirty.chunked(20).forEachIndexed { chunkIndex, chunk ->
             val backupManga = backupCreator.backupMangas(chunk, backupOptions)
             backupManga.forEach { bm ->
-                val single = Backup(
-                    backupManga = listOf(bm.also { it.categories = emptyList() }),
+                val k = key(bm.source, bm.url)
+                val fp = chunk.firstOrNull { it.source == bm.source && it.url == bm.url }?.let(::fingerprint)
+                    ?: return@forEach
+                bm.categories = emptyList()
+                val progressText = json.encodeToString(ProgressDoc.serializer(), progressOf(bm))
+                val full = Backup(
+                    backupManga = listOf(bm),
                     backupSources = backupCreator.backupSources(listOf(bm)),
                 )
-                val name = "m_${key(bm.source, bm.url)}"
-                val fp = chunk.firstOrNull { it.source == bm.source && it.url == bm.url }?.let(::fingerprint)
-                if (upload(token, name, protoBuf.encodeToByteArray(Backup.serializer(), single)) && fp != null) {
-                    index.local[name] = fp
-                    pushed += name
+                val fullBytes = protoBuf.encodeToByteArray(Backup.serializer(), full)
+                val struct = structureHash(bm)
+                var ok = true
+                if (index.local["s_$k"] != struct) {
+                    // the manga itself changed (new chapters, settings, ...): upload the full object
+                    ok = upload(token, "m_$k", fullBytes)
+                    if (ok) {
+                        index.local["s_$k"] = struct
+                        pushed += "m_$k"
+                    }
                 }
+                // read / bookmark / history changes only touch this small file
+                if (ok) {
+                    val pName = "p_$k.json"
+                    val pHash = hash(progressText.toByteArray())
+                    if (index.local[pName] != pHash) {
+                        ok = upload(token, pName, progressText.toByteArray())
+                        if (ok) {
+                            index.local[pName] = pHash
+                            pushed += pName
+                        }
+                    }
+                }
+                if (ok) {
+                    index.local["m_$k"] = fp
+                    uploaded++
+                }
+            }
+            saveIndex()
+            report("Upload manga", minOf((chunkIndex + 1) * 20, dirty.size), dirty.size)
+        }
+
+        // extensions: union with what the server already has, so an unfinished install never shrinks the list
+        val manager = Injekt.get<ExtensionManager>()
+        val local = manager.installedExtensionsFlow.value.map {
+            ExtEntry(it.pkgName, it.signatureHash, it.name, it.sources.map { s -> s.id })
+        }
+        val remoteList = runCatching { json.decodeFromString(ExtDoc.serializer(), index.extDoc).extensions }
+            .getOrDefault(emptyList())
+        val blank = Injekt.get<SourcePreferences>().disabledSources().get()
+        val merged = (remoteList + local).associateBy { it.pkg }.values
+            .filterNot { e -> e.sources.isNotEmpty() && e.sources.all { it.toString() in blank } }
+            .sortedBy { it.pkg }
+        val extText = json.encodeToString(ExtDoc.serializer(), ExtDoc(merged))
+        if (merged.isNotEmpty() && index.local[EXT] != hash(extText.toByteArray())) {
+            if (upload(token, EXT, extText.toByteArray())) {
+                index.local[EXT] = hash(extText.toByteArray())
+                index.extDoc = extText
+                pushed += EXT
+                uploaded++
             }
         }
 
@@ -232,6 +483,7 @@ class SupabaseDeltaSync(
             if (index.local[PREFS] != hash(bytes) && upload(token, PREFS, bytes)) {
                 index.local[PREFS] = hash(bytes)
                 pushed += PREFS
+                uploaded++
             }
         }
 
@@ -240,6 +492,7 @@ class SupabaseDeltaSync(
             if (index.local[CATS] != hash(bytes) && upload(token, CATS, bytes)) {
                 index.local[CATS] = hash(bytes)
                 pushed += CATS
+                uploaded++
             }
         }
 
@@ -269,7 +522,45 @@ class SupabaseDeltaSync(
         if (upload(token, name, file.readBytes())) {
             index.local[name] = fp
             pushed += name
+            uploaded++
         }
+    }
+
+    private fun progressOf(bm: BackupManga) = ProgressDoc(
+        bm.chapters.filter { it.read || it.bookmark || it.lastPageRead > 0 }
+            .associate { it.url to ChProg(it.read, it.bookmark, it.lastPageRead, it.lastModifiedAt) },
+        bm.history.map { HistEntry(it.url, it.lastRead, it.readDuration) },
+    )
+
+    /** Hash of everything about a manga except read progress, history and version counters. */
+    private fun structureHash(bm: BackupManga): String {
+        val chapters = bm.chapters.map { ch ->
+            BackupChapter(
+                url = ch.url,
+                name = ch.name,
+                scanlator = ch.scanlator,
+                dateUpload = ch.dateUpload,
+                chapterNumber = ch.chapterNumber,
+                sourceOrder = ch.sourceOrder,
+            )
+        }
+        val savedChapters = bm.chapters
+        val savedHistory = bm.history
+        val savedVersion = bm.version
+        val savedModified = bm.lastModifiedAt
+        bm.chapters = chapters
+        bm.history = emptyList()
+        bm.version = 0
+        bm.lastModifiedAt = 0
+        val bytes = protoBuf.encodeToByteArray(
+            Backup.serializer(),
+            Backup(backupManga = listOf(bm)),
+        )
+        bm.chapters = savedChapters
+        bm.history = savedHistory
+        bm.version = savedVersion
+        bm.lastModifiedAt = savedModified
+        return hash(bytes)
     }
 
     private suspend fun prefsBytes(): ByteArray {
@@ -397,6 +688,7 @@ class SupabaseDeltaSync(
     private companion object {
         const val PREFS = "prefs.bin"
         const val CATS = "cats.json"
+        const val EXT = "ext.json"
         const val PAGE = 1000
     }
 }

@@ -10,6 +10,8 @@ import eu.kanade.tachiyomi.data.backup.models.BackupCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupChapter
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.BackupNotifier
+import eu.kanade.tachiyomi.data.notification.Notifications
+import eu.kanade.tachiyomi.util.system.notify
 import eu.kanade.tachiyomi.data.backup.restore.BackupRestoreJob
 import eu.kanade.tachiyomi.data.backup.restore.BackupRestorer
 import eu.kanade.tachiyomi.data.backup.restore.RestoreOptions
@@ -91,8 +93,11 @@ class SyncManager(
         // KMK -->
         // Supabase: incremental sync (pull once when the app opens, afterwards only push what changed).
         if (SyncService.fromInt(syncPreferences.syncService().get()) == SyncService.SUPABASE) {
-            SupabaseDeltaSync(context, this).run(pull)
-            if (pull) notifier.showSyncSuccess("Sync completed successfully")
+            val delta = SupabaseDeltaSync(context, this)
+            delta.run(pull)
+            if (pull || delta.uploaded > 0) {
+                notifier.showSyncSuccess("Download ${delta.downloaded}, upload ${delta.uploaded}")
+            }
             return
         }
         // KMK <--
@@ -291,6 +296,12 @@ class SyncManager(
     // KMK <--
 
     // KMK -->
+    /** Shows "<text> done/total" in the sync notification and the library banner. */
+    suspend fun reportProgress(text: String, done: Int, total: Int) {
+        val builder = notifier.showSyncProgress(text + " " + done + "/" + total, done, total.coerceAtLeast(1))
+        context.notify(Notifications.ID_SYNC_PROGRESS, builder.build())
+    }
+
     /** Restores the manga of [remote] that differ from the local ones (used by the incremental Supabase sync). */
     suspend fun applyRemoteManga(remote: Backup) {
         val (favorites, nonFavorites) = filterFavoritesAndNonFavorites(remote)
