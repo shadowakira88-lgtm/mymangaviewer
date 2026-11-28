@@ -19,6 +19,7 @@ import mihon.feature.migration.list.MigrationListScreen
 import tachiyomi.domain.manga.model.asMangaCover
 import tachiyomi.i18n.kmk.KMR
 import tachiyomi.presentation.core.i18n.stringResource
+import uy.kohesive.injekt.api.get
 
 class MigrateSearchScreen(private val mangaId: Long) : Screen() {
 
